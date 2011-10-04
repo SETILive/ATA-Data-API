@@ -4,7 +4,7 @@ require 'yaml'
 
 config = YAML.load_file( 'redis.yml')
 puts config["development"]
-config = config["development"].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
+config = config["production"].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 RedisConnection =Redis.new( config  )
 
 get  '/' do 
