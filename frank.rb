@@ -3,14 +3,17 @@ require 'redis'
 require 'yaml'
 
 config = YAML.load_file( 'redis.yml')
-puts config["development"]
 config = config["production"].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 RedisConnection =Redis.new( config  )
 
 get  '/' do 
-  keys_and_time  = RedisConnection.keys("subject_*").inject(""){|r,k| r<<"#{k} : #{RedisConnection.ttl k} s <br/>"; r}
-  "Frank has the following keys: <br/> #{keys_and_time}"
+  keys_and_time  = RedisConnection.keys("subject_*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}.join("<br/>")
+  page ="<html><head></head><body>"
+  page <<"Frank has the following keys: <br/> #{keys_and_time}"
+  page << "</body></html>"
+  page
 end
+
 
 post '/subjects/' do 
   unless params[:file] &&
@@ -21,7 +24,7 @@ post '/subjects/' do
         (observation_id = params[:subject][:observation_id])
         
    @error = "No file selected"
-   return "problem"
+   return [406, "problem"]
  end
  STDERR.puts "Uploading file, original name #{name.inspect}"
  file=''
@@ -31,6 +34,7 @@ post '/subjects/' do
  end
  RedisConnection.set "subject_#{source_id}_#{activity_id}_#{observation_id}", file
  RedisConnection.expire "subject_#{source_id}_#{activity_id}_#{observation_id}", 120
+ return [201, "created succesfully"]
 end
 
 
