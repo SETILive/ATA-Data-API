@@ -15,6 +15,14 @@ get  '/' do
   page
 end
 
+post '/observations/' do
+  if params[:observation_id] 
+    RedisConnection.set "current_target", params[:observation_id]
+    return [201,"updated observation id"]
+  else
+    return [406,"submit a current observation id"]
+  end
+end
 
 
 
