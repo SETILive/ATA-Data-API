@@ -8,11 +8,14 @@ RedisConnection =Redis.new( config  )
 
 get  '/' do 
   keys_and_time  = RedisConnection.keys("subject_*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}.join("<br/>")
+  observation_id = RedisConnection.get("current_target")
   page ="<html><head></head><body>"
-  page <<"Frank has the following keys: <br/> #{keys_and_time}"
+  page <<"Frank is currently observering tartget #{observation_id} and has the following keys: <br/> #{keys_and_time}"
   page << "</body></html>"
   page
 end
+
+
 
 
 post '/subjects/' do 
