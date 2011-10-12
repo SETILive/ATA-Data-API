@@ -1,18 +1,16 @@
 require 'sinatra'
 require 'redis'
 require 'yaml'
+require 'erb'
+require 'json'
 
 config = YAML.load_file( 'redis.yml')
-config = config["production"].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
+config = config["development"].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 RedisConnection =Redis.new( config  )
 
 get  '/' do 
-  keys_and_time  = RedisConnection.keys("subject_*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}.join("<br/>")
-  observation_id = RedisConnection.get("current_target")
-  page ="<html><head></head><body>"
-  page <<"Frank is currently observering tartget #{observation_id} and has the following keys: <br/> #{keys_and_time}"
-  page << "</body></html>"
-  page
+  @keys  = RedisConnection.keys("subject_*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
+  erb :index
 end
 
 post '/observations/' do
@@ -25,6 +23,9 @@ post '/observations/' do
 end
 
 
+get '/keys' do
+  RedisConnection.keys("subject_*").inject({}){|r,k| r[k]={:ttl=>RedisConnection.ttl(k)}; r }.to_json
+end
 
 post '/subjects/' do 
   unless params[:file] &&
@@ -44,8 +45,11 @@ post '/subjects/' do
    file << blk
  end
  RedisConnection.set "subject_#{source_id}_#{activity_id}_#{observation_id}", file
- RedisConnection.expire "subject_#{source_id}_#{activity_id}_#{observation_id}", 120
+ RedisConnection.expire "subject_#{source_id}_#{activity_id}_#{observation_id}", 120000
  return [201, "created succesfully"]
 end
+
+
+
 
 
