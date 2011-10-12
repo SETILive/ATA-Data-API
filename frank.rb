@@ -4,8 +4,10 @@ require 'yaml'
 require 'erb'
 require 'json'
 
-config = YAML.load_file( 'redis.yml')
-config = config["development"].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
+
+
+config = YAML.load_file('redis.yml')
+config = config[settings.environment.to_s].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 RedisConnection =Redis.new( config  )
 
 get  '/' do 
