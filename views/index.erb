@@ -1,0 +1,31 @@
+<html>
+	<head>
+		<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+		<script type ="text/javascript">
+			$(document).ready(function(){
+				getKeys();
+			});
+
+			function getKeys(){
+				$.getJSON('/keys', function(data){
+					$("#keys").html("");
+					for (key in data){
+						$("#keys").append("<li> "+ key +" time left  "+data[key].ttl+" s");
+					}
+
+					setTimeout(getKeys, 100);
+				});
+			}
+
+		</script>
+	</head>
+	<body>
+		<p>Frank is currently observering tartget <%=@observation_id%> and has the following keys: </p>
+
+		<ul id="keys" style="list-format='none'">
+			<% @keys.each do |key| %>
+				<li> <%=key%> </li>
+			<%end%>
+		</ul>
+	</body>
+</html>
