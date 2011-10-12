@@ -5,7 +5,7 @@ require 'erb'
 require 'json'
 
 
-
+puts "settings enviroment #{settings.environment.to_s}"
 config = YAML.load_file('redis.yml')
 config = config[settings.environment.to_s].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 RedisConnection =Redis.new( config  )
