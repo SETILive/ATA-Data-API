@@ -6,7 +6,9 @@ require 'json'
 
 
 config = YAML.load_file('redis.yml')
-config = config['development'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
+puts "enviroment is #{ENV['RACK_ENV']}"
+
+config = config['production'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 RedisConnection =Redis.new( config  )
 
 redis_key_prefix= "subject_new_"
