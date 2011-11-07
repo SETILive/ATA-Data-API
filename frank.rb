@@ -6,11 +6,16 @@ require 'json'
 
 
 config = YAML.load_file('redis.yml')
-config = config['production'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
+config = config['development'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 RedisConnection =Redis.new( config  )
 
+redis_key_prefix= "subject_new_"
+subject_life = 90
+
 get  '/' do 
-  @keys  = RedisConnection.keys("subject_*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
+  @keys   = RedisConnection.keys("#{redis_key_prefix}*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
+  @status = RedisConnection.get "current_status"
+  @pending_followups = RedisConnection.get "follow_ups"
   erb :index
 end
 
@@ -23,9 +28,29 @@ post '/observations/' do
   end
 end
 
+post '/sources/' do
+  if params[:source] 
+    RedisConnection.set "current_source", params[:source]
+    return [201,"updated source"]
+  else
+    return [406,"submit a current source"]
+  end
+end
+
+get '/followup' do
+  @pending_followups = RedisConnection.get("follow_ups")
+end
+
+post '/status' do
+  RedisConnection.set "current_status", params[:status]
+end
+
+get '/status' do
+  RedisConnection.get "current_status"
+end
 
 get '/keys' do
-  RedisConnection.keys("subject_*").inject({}){|r,k| r[k]={:ttl=>RedisConnection.ttl(k)}; r }.to_json
+  RedisConnection.keys("#{redis_key_prefix}*").inject({}){|r,k| r[k]={:ttl=>RedisConnection.ttl(k)}; r }.to_json
 end
 
 post '/subjects/' do 
@@ -39,18 +64,13 @@ post '/subjects/' do
    @error = "No file selected"
    return [406, "problem"]
  end
- STDERR.puts "Uploading file, original name #{name.inspect}"
+ STDOUT.puts "Uploading file, original name #{name.inspect}"
  file=''
  
  while blk = tmpfile.read(65536)
    file << blk
  end
- RedisConnection.set "subject_#{source_id}_#{activity_id}_#{observation_id}", file
- RedisConnection.expire "subject_#{source_id}_#{activity_id}_#{observation_id}", 120000
+ RedisConnection.set "#{redis_key_prefix}#{source_id}_#{observation_id}_#{activity_id}", file
+ RedisConnection.expire "#{redis_key_prefix}#{source_id}_#{observation_id}_#{activity_id}", subject_life
  return [201, "created succesfully"]
 end
-
-
-
-
-
