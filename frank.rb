@@ -44,7 +44,13 @@ get '/followup' do
 end
 
 post '/status' do
-  RedisConnection.set "current_status", params[:status]
+  allowed_states = ["active", "inactive"]
+  if allowed_states.include? params[:status]
+    RedisConnection.set "current_status", params[:status]
+    return 201
+  else 
+    return [406,"status type not recognised"]
+  end  
 end
 
 get '/status' do
