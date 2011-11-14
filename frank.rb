@@ -12,7 +12,7 @@ config = config['production'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 RedisConnection =Redis.new( config  )
 
 redis_key_prefix= "subject_new_"
-subject_life = 93
+subject_life = 93*3
 
 get  '/' do 
   @keys   = RedisConnection.keys("#{redis_key_prefix}*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
