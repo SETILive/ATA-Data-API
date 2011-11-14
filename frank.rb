@@ -12,7 +12,7 @@ config = config['production'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 RedisConnection =Redis.new( config  )
 
 redis_key_prefix= "subject_new_"
-subject_life = 90
+subject_life = 93
 
 get  '/' do 
   @keys   = RedisConnection.keys("#{redis_key_prefix}*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
@@ -41,6 +41,7 @@ end
 
 get '/followup' do
   @pending_followups = RedisConnection.get("follow_ups")
+  @pending_followups.to_json
 end
 
 post '/status' do
@@ -56,6 +57,7 @@ end
 get '/status' do
   RedisConnection.get "current_status"
 end
+
 
 get '/keys' do
   RedisConnection.keys("#{redis_key_prefix}*").inject({}){|r,k| r[k]={:ttl=>RedisConnection.ttl(k)}; r }.to_json
