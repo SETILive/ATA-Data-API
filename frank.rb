@@ -8,7 +8,7 @@ require 'json'
 config = YAML.load_file('redis.yml')
 puts "enviroment is #{ENV['RACK_ENV']}"
 
-config = config['production'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
+config = config['development'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 RedisConnection =Redis.new( config  )
 
 redis_key_prefix= "subject_new_"
@@ -30,14 +30,26 @@ post '/observations/' do
   end
 end
 
-post '/sources/' do
-  if params[:source] 
-    RedisConnection.set "current_source", params[:source]
-    return [201,"updated source"]
+#to allow set to add target data in to the system 
+post '/targets/' do 
+  target_id   = params[:target_id]
+  target_info = params[:target_info]
+  unless target_id && target_info
+    return [406, "invalid target info"]
+  end
+  
+  RedisConnection.set "target_#{target_id}", target_info
+  return [201, "upadted target"]
+end
+
+get '/targets/' do 
+  if params[:id]
+    return RedisConnection.get "target_#{params[:id]}"
   else
-    return [406,"submit a current source"]
+    return RedisConnection.keys "target_*" 
   end
 end
+
 
 get '/followup' do
   @pending_followups = RedisConnection.get("follow_ups")
@@ -64,7 +76,6 @@ get '/keys' do
 end
 
 post '/subjects/' do 
-  puts 'getting subject '
   unless params[:file] &&
         (tmpfile = params[:file][:tempfile]) &&
         (name = params[:file][:filename]) &&
@@ -72,10 +83,10 @@ post '/subjects/' do
         (source_id   = params[:subject][:source_id]) &&
         (observation_id = params[:subject][:observation_id])
   
-   puts "issue #{params}"
    @error = "No file selected"
    return [406, "problem params are #{params}"]
  end
+ 
  STDOUT.puts "Uploading file, original name #{name.inspect}"
  file=''
  
