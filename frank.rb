@@ -64,15 +64,16 @@ get '/keys' do
 end
 
 post '/subjects/' do 
+  STDOUT.puts 'getting subject '
   unless params[:file] &&
         (tmpfile = params[:file][:tempfile]) &&
         (name = params[:file][:filename]) &&
         (activity_id = params[:subject][:activity_id]) &&
         (source_id   = params[:subject][:source_id]) &&
         (observation_id = params[:subject][:observation_id])
-   puts "pararms are #{params.to_json}"
+           
    @error = "No file selected"
-   return [406, "problem"]
+   return [406, "problem params are #{params}"]
  end
  STDOUT.puts "Uploading file, original name #{name.inspect}"
  file=''
