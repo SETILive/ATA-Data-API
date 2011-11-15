@@ -70,7 +70,7 @@ post '/subjects/' do
         (activity_id = params[:subject][:activity_id]) &&
         (source_id   = params[:subject][:source_id]) &&
         (observation_id = params[:subject][:observation_id])
-        
+   STDOUT.puts params.to_json
    @error = "No file selected"
    return [406, "problem"]
  end
