@@ -8,12 +8,13 @@ require 'json'
 config = YAML.load_file('redis.yml')
 puts "enviroment is #{ENV['RACK_ENV']}"
 
-config = config['development'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
+config = config['production'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 RedisConnection =Redis.new( config  )
 
 redis_key_prefix= "subject_new_"
 subject_life = 93*3
 
+#Index path should show all the keys and 
 get  '/' do 
   @keys   = RedisConnection.keys("#{redis_key_prefix}*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
   @status = RedisConnection.get "current_status"
@@ -30,6 +31,10 @@ post '/observations/' do
   end
 end
 
+
+def target_key(target_id)
+  "target_#{target_id}"
+end
 #to allow set to add target data in to the system 
 post '/targets/' do 
   target_id   = params[:target_id]
@@ -38,15 +43,34 @@ post '/targets/' do
     return [406, "invalid target info"]
   end
   
-  RedisConnection.set "target_#{target_id}", target_info
+  RedisConnection.set target_key(target_id), target_info
   return [201, "upadted target"]
+end
+
+post '/current_target' do 
+  unless params[:id]
+    return [406, "include a target id"]
+  end
+  target_id = params[:id]
+  unless RedisConnection.key target_key(target_id)
+    return [406, "target not found in system. Please specify target by posting to /targets/ first"]
+  end
+  RedisConnection.set "current_target", target_id 
+end
+
+get '/current_target' do 
+  current_target_id = RedisConnection.get "current_target"
+  return [404, "current target not set"] unless current_target_id 
+  target_info = RedisConnection.get target_key(current_target_id)
+  return [404, "current target #{current_target_id} set but no data in system for it"]
+  target_info
 end
 
 get '/targets/' do 
   if params[:id]
-    return RedisConnection.get "target_#{params[:id]}"
+    return RedisConnection.get target_key(params[:id])
   else
-    return RedisConnection.keys "target_*" 
+    return RedisConnection.keys target_key("*")
   end
 end
 
