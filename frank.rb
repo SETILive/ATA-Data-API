@@ -64,14 +64,15 @@ get '/keys' do
 end
 
 post '/subjects/' do 
-  STDOUT.puts 'getting subject '
+  puts 'getting subject '
   unless params[:file] &&
         (tmpfile = params[:file][:tempfile]) &&
         (name = params[:file][:filename]) &&
         (activity_id = params[:subject][:activity_id]) &&
         (source_id   = params[:subject][:source_id]) &&
         (observation_id = params[:subject][:observation_id])
-           
+  
+   puts "issue #{params}"
    @error = "No file selected"
    return [406, "problem params are #{params}"]
  end
