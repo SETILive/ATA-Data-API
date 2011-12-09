@@ -1,0 +1,50 @@
+Frank API
+
+
+Targets (objects in the sky)
+    post /targets/
+    { id:1023, target_info: {ra: 3, dec:4, target_name:"Crab" }}
+    
+    get /targets/
+        returns a json list of target ids with their names 
+    
+    get /targets/?id=2
+        returns the json of the current target with id 3
+        
+    post /current_target/
+        {[{beam_no: 1, target_id: 343}, {beam_no:2, target_id: 32323}]}
+        sets the current target that the telescope is looking at 
+    
+    get /current_target/
+        returns the current target 
+        
+Followups (requests for follow up)
+    get '/followup/' 
+        returns a list of the currently pending followups
+    
+Status 
+    get '/status'
+        returns the current status of the telescope (currently can be active/inactive/followingUp)
+
+    post '/status'
+        {status:'active'}
+        {status:'active', followup_id : 23}
+        sets the current status of the telescope 
+
+Subjects 
+    post '/subjects/'
+        Multipost with file and 
+        {activity_id: 1, target_id :2, observation_id :3 }
+        
+        
+Flow of work from Franks point of view 
+
+    1) Telescope starts working and Frank receives a post to /status?status=active
+    2) Telescope starts observing a new target with id 3, Frank receives a post to /targets/ with the new target info and a post to /current_target to update the current target 
+    3) Frank starts receiving data to post /subjects which represents new data
+    4) While this is happening charlie keeps polling /followups for potential followups
+    5) Marv starts picking up data form the cache and pushing it out to users he marks a followup request
+    6) a request form /followups yields a result, this is passed through the seti system and a decision is made to follow up or not 
+    7) a follow up is triggered. Frank receives a post to /status?status=followingup&followup_id=2323
+    8) frank continues to accept data including the follow up observations
+    9) frank receives a post to /status?status=active to inform him the telescope has gone back to normal operations

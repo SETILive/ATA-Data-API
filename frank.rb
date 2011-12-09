@@ -4,12 +4,12 @@ require 'yaml'
 require 'erb'
 require 'json'
 
+redis_config = YAML.load_file('config/redis.yml')
+redis_config = redis_config['development'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 
-config = YAML.load_file('redis.yml')
-puts "enviroment is #{ENV['RACK_ENV']}"
+RedisConnection =Redis.new( redis_config  )
 
-config = config['production'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
-RedisConnection =Redis.new( config  )
+# config = JSON.parse(IO.read("config.json"))
 
 redis_key_prefix= "subject_new_"
 subject_life = 93*3
@@ -32,38 +32,21 @@ post '/observations/' do
 end
 
 
+
+#Targets
+
 def target_key(target_id)
   "target_#{target_id}"
 end
-#to allow set to add target data in to the system 
-post '/targets/' do 
-  target_id   = params[:target_id]
-  target_info = params[:target_info]
+
+post '/targets/:id' do |target_id|
+  target_info = params[:target]
   unless target_id && target_info
     return [406, "invalid target info"]
   end
   
   RedisConnection.set target_key(target_id), target_info
   return [201, "upadted target"]
-end
-
-post '/current_target' do 
-  unless params[:id]
-    return [406, "include a target id"]
-  end
-  target_id = params[:id]
-  unless RedisConnection.key target_key(target_id)
-    return [406, "target not found in system. Please specify target by posting to /targets/ first"]
-  end
-  RedisConnection.set "current_target", target_id 
-end
-
-get '/current_target' do 
-  current_target_id = RedisConnection.get "current_target"
-  return [404, "current target not set"] unless current_target_id 
-  target_info = RedisConnection.get target_key(current_target_id)
-  return [404, "current target #{current_target_id} set but no data in system for it"]
-  target_info
 end
 
 get '/targets/' do 
@@ -74,28 +57,61 @@ get '/targets/' do
   end
 end
 
-
-get '/followup' do
-  @pending_followups = RedisConnection.get("follow_ups")
-  @pending_followups.to_json
+get '/current_target' do 
+  current_target_id = RedisConnection.get "current_target"
+  return [404, "current target not set"] unless current_target_id 
+  target_info = RedisConnection.get target_key(current_target_id)
+  return [404, "current target #{current_target_id} set but no data in system for it"]
+  {:id=> current_target_id, :target_info=>target_info}
 end
 
-post '/status' do
+post '/current_target/:target_id' do |target_id| 
+  unless target_id
+    return [406, "include a target id"]
+  end
+
+  unless RedisConnection.key target_key(target_id)
+    return [406, "target not found in system. Please specify target by posting to /targets/ first"]
+  end
+
+  RedisConnection.set "current_target", target_id 
+end
+
+
+#follow_up_list These 
+get '/followup' do
+  pending_followups = RedisConnection.get("follow_up_*")
+  pending_followups.to_json
+end
+
+#Getting and setting status 
+
+get '/status' do
+  RedisConnection.get "current_status"
+end
+
+post '/status/:status' do |status|
   allowed_states = ["active", "inactive"]
-  if allowed_states.include? params[:status]
-    RedisConnection.set "current_status", params[:status]
+  if allowed_states.include? status
+    RedisConnection.set "current_status", status
     return 201
   else 
     return [406,"status type not recognised"]
   end  
 end
 
-get '/status' do
-  RedisConnection.get "current_status"
+#Subjects
+
+get '/subjects/:subject_id' do |subject_id|
+  subject = RedisConnection.get("#{redis_key_prefix}#{source_id}")
+  if subject 
+    return subject.to_json
+  else 
+    return [404, 'subject with id #{subject_id} does not exist']
+  end
 end
 
-
-get '/keys' do
+get '/subjects' do
   RedisConnection.keys("#{redis_key_prefix}*").inject({}){|r,k| r[k]={:ttl=>RedisConnection.ttl(k)}; r }.to_json
 end
 
