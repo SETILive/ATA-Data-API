@@ -22,17 +22,6 @@ get  '/' do
   erb :index
 end
 
-post '/observations/' do
-  if params[:observation_id] 
-    RedisConnection.set "current_target", params[:observation_id]
-    return [201,"updated observation id"]
-  else
-    return [406,"submit a current observation id"]
-  end
-end
-
-
-
 #Targets
 
 def target_key(target_id)
@@ -45,15 +34,19 @@ post '/targets/:id' do |target_id|
     return [406, "invalid target info"]
   end
   
-  RedisConnection.set target_key(target_id), target_info
+  RedisConnection.set target_key(target_id), target_info.to_json
   return [201, "upadted target"]
 end
 
-get '/targets/' do 
-  if params[:id]
-    return RedisConnection.get target_key(params[:id])
+get '/targets' do 
+  RedisConnection.keys(target_key("*")).collect{|key| RedisConnection.get(key)}.to_json
+end
+
+get '/targets/:id' do |target_id| 
+  if target_id
+    return RedisConnection.get target_key(target_id)
   else
-    return RedisConnection.keys target_key("*")
+    return [404, "no target with that id"]
   end
 end
 
@@ -62,7 +55,8 @@ get '/current_target' do
   return [404, "current target not set"] unless current_target_id 
   target_info = RedisConnection.get target_key(current_target_id)
   return [404, "current target #{current_target_id} set but no data in system for it"]
-  {:id=> current_target_id, :target_info=>target_info}
+  
+  return {:target_id=> current_target_id, :target_info=>target_info}.to_json
 end
 
 post '/current_target/:target_id' do |target_id| 
@@ -70,7 +64,7 @@ post '/current_target/:target_id' do |target_id|
     return [406, "include a target id"]
   end
 
-  unless RedisConnection.key target_key(target_id)
+  unless RedisConnection.get target_key(target_id)
     return [406, "target not found in system. Please specify target by posting to /targets/ first"]
   end
 
@@ -78,7 +72,7 @@ post '/current_target/:target_id' do |target_id|
 end
 
 
-#follow_up_list These 
+#follow_up_list These are set by MARV  
 get '/followup' do
   pending_followups = RedisConnection.get("follow_up_*")
   pending_followups.to_json
@@ -87,7 +81,7 @@ end
 #Getting and setting status 
 
 get '/status' do
-  RedisConnection.get "current_status"
+  return RedisConnection.get "current_status"
 end
 
 post '/status/:status' do |status|

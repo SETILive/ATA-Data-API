@@ -34,5 +34,23 @@ module FrankHelperMethods
   def set_status 
       RedisConnection.set('')
   end
+
+  def example_target
+    {:target=>{:ra=>rand()*10, :dec=>rand*20, :name=>"crab"}}
+  end
+
+  def get_current_target 
+    RedisConnection.get("current_target")
+  end
+
+  def set_current_target(target_id) 
+    RedisConnection.set("current_target", target_id)
+  end
+
+  def set_up_example_target(target_id, target=nil)
+    target ||= example_target
+    RedisConnection.set(target_key(target_id), target)
+    target
+  end
 end
 

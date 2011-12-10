@@ -2,40 +2,52 @@ Frank API
 
 
 Targets (objects in the sky)
-    post /targets/
-    { id:1023, target_info: {ra: 3, dec:4, target_name:"Crab" }}
     
-    get /targets/
+    Create or update a target with a given ID
+    
+    post /targets/:id               
+    {target: {ra: 3, dec:4, target_name:"Crab" }}  can include other meta data 
+    
+
+    get /targets
         returns a json list of target ids with their names 
     
-    get /targets/?id=2
-        returns the json of the current target with id 3
+    get /targets/2
+        returns the json of the current target with id 2 if it exists
         
-    post /current_target/
-        {[{beam_no: 1, target_id: 343}, {beam_no:2, target_id: 32323}]}
-        sets the current target that the telescope is looking at 
+    post /current_target/:id
+        {beam: {beam_no: 1}}
+        sets the current target that the telescope is looking at with beam no 1
     
     get /current_target/
-        returns the current target 
+        returns the current list of targets in each beam 
         
 Followups (requests for follow up)
-    get '/followup/' 
+    get '/followups' 
         returns a list of the currently pending followups
     
 Status 
     get '/status'
         returns the current status of the telescope (currently can be active/inactive/followingUp)
 
-    post '/status'
+    post '/status/:state'
         {status:'active'}
-        {status:'active', followup_id : 23}
-        sets the current status of the telescope 
+        {status:'inactive'}
+        {status:'followingUp', :targets=>[{followUpId: 20}, {folowUpId:23}]}
+        sets the current status of the telescope we can include other status is needed
 
 Subjects 
-    post '/subjects/'
+    post '/subjects/:id'
         Multipost with file and 
         {activity_id: 1, target_id :2, observation_id :3 }
+    
+    get '/subjects'
+        returns a list of all active subjects
+    
+    get '/subjects/:id'
+        get the subject with a specific id
         
+    
         
 Flow of work from Franks point of view 
 
