@@ -3,11 +3,21 @@ require 'redis'
 require 'yaml'
 require 'erb'
 require 'json'
+require 'pusher'
+
+require 'pusher'
+
+Pusher.app_id = '***REMOVED***'
+Pusher.key = '***REMOVED***'
+Pusher.secret = '***REMOVED***'
+
 
 redis_config = YAML.load_file('config/redis.yml')
 redis_config = redis_config['development'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 
 RedisConnection =Redis.new( redis_config  )
+
+
 
 # config = JSON.parse(IO.read("config.json"))
 
@@ -30,6 +40,7 @@ end
 
 post '/targets/:id' do |target_id|
   target_info = params[:target]
+  
   unless target_id && target_info
     return [406, "invalid target info"]
   end
@@ -88,6 +99,7 @@ post '/status/:status' do |status|
   allowed_states = ["active", "inactive"]
   if allowed_states.include? status
     RedisConnection.set "current_status", status
+    Pusher['telescope'].trigger('status Changed', status)
     return 201
   else 
     return [406,"status type not recognised"]
@@ -113,9 +125,8 @@ post '/subjects/' do
   unless params[:file] &&
         (tmpfile = params[:file][:tempfile]) &&
         (name = params[:file][:filename]) &&
-        (activity_id = params[:subject][:activity_id]) &&
-        (source_id   = params[:subject][:source_id]) &&
-        (observation_id = params[:subject][:observation_id])
+        (activity_id = params[:activity_id]) &&
+        (observation_id = params[:observation_id])
   
    @error = "No file selected"
    return [406, "problem params are #{params}"]
