@@ -109,7 +109,7 @@ end
 #Subjects
 
 get '/subjects/:activity_id' do |activity_id|
-  subject = RedisConnection.get("#{redis_key_prefix}_#{activity_id}")
+  subject = RedisConnection.get("#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{obs}")
   if subject 
     return subject.to_json
   else 
@@ -122,12 +122,13 @@ get '/subjects' do
 end
 
 post '/subjects' do 
-  puts "having trouble params are #{params}"
+  File.ope("uploadErrors.log", "a") {|f| f.puts "having trouble params are #{params}"}
   unless params[:file] &&
         (tmpfile = params[:file][:tempfile]) &&
         (name = params[:file][:filename]) &&
         (activity_id = params[:subject][:activity_id]) &&
-        (observation_id = params[:subject][:observation_id])
+        (observation_id = params[:subject][:observation_id]) &&
+        (obs = params[:subject][:obs])
   
    @error = "No file selected"
    return [406, "problem params are #{params}"]
@@ -139,7 +140,7 @@ post '/subjects' do
  while blk = tmpfile.read(65536)
    file << blk
  end
- RedisConnection.set "#{redis_key_prefix}_#{activity_id}", file
- RedisConnection.expire "#{redis_key_prefix}_#{activity_id}", subject_life
+ RedisConnection.set "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{obs}", file
+ RedisConnection.expire "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{obs}", subject_life
  return [201, "created succesfully"]
 end
