@@ -128,7 +128,7 @@ post '/subjects' do
         (name = params[:file][:filename]) &&
         (activity_id = params[:subject][:activity_id]) &&
         (observation_id = params[:subject][:observation_id]) &&
-        (obs = params[:subject][:obs])
+        (pol = params[:subject][:pol])
   
   RedisConnection.set("error_key", params.to_json)
    File.open("uploadErrors.log", "a") {|f| f.puts "having trouble params are #{params}"}
@@ -143,7 +143,7 @@ post '/subjects' do
  while blk = tmpfile.read(65536)
    file << blk
  end
- RedisConnection.set "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{obs}", file
- RedisConnection.expire "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{obs}", subject_life
+ RedisConnection.set "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}", file
+ RedisConnection.expire "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}", subject_life
  return [201, "created succesfully"]
 end
