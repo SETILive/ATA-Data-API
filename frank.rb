@@ -129,6 +129,7 @@ post '/subjects' do
         (observation_id = params[:subject][:observation_id]) &&
         (obs = params[:subject][:obs])
   
+  RedisConnection.set("error_key", params.to_json)
    File.open("uploadErrors.log", "a") {|f| f.puts "having trouble params are #{params}"}
 
    @error = "No file selected"
