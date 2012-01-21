@@ -29,6 +29,7 @@ get  '/' do
   @keys   = RedisConnection.keys("#{redis_key_prefix}*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
   @status = RedisConnection.get "current_status"
   @pending_followups = RedisConnection.get "follow_ups"
+  @errors = RedisConnection.get "error_key"
   erb :index
 end
 
