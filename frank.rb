@@ -108,8 +108,8 @@ end
 
 #Subjects
 
-get '/subjects/:subject_id' do |subject_id|
-  subject = RedisConnection.get("#{redis_key_prefix}#{source_id}")
+get '/subjects/:activity_id' do |activity_id|
+  subject = RedisConnection.get("#{redis_key_prefix}_#{activity_id}")
   if subject 
     return subject.to_json
   else 
@@ -138,7 +138,7 @@ post '/subjects/' do
  while blk = tmpfile.read(65536)
    file << blk
  end
- RedisConnection.set "#{redis_key_prefix}#{source_id}_#{observation_id}_#{activity_id}", file
- RedisConnection.expire "#{redis_key_prefix}#{source_id}_#{observation_id}_#{activity_id}", subject_life
+ RedisConnection.set "#{redis_key_prefix}_#{activity_id}", file
+ RedisConnection.expire "#{redis_key_prefix}_#{activity_id}", subject_life
  return [201, "created succesfully"]
 end
