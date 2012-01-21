@@ -122,6 +122,7 @@ get '/subjects' do
 end
 
 post '/subjects/' do 
+  puts params 
   unless params[:file] &&
         (tmpfile = params[:file][:tempfile]) &&
         (name = params[:file][:filename]) &&
