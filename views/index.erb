@@ -9,7 +9,7 @@
 			});
 
 			function getKeys(){
-				$.getJSON('/keys', function(data){
+				$.getJSON('/subjects', function(data){
 					$("#keys").html("");
 					var count=0;
 					for (key in data){
@@ -19,8 +19,7 @@
 
 					}
 					$("#count").html(count);
-
-					setTimeout(getKeys, 100);
+					setTimeout(getKeys, 1000);
 				});
 			}
 
