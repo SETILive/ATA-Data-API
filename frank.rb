@@ -122,7 +122,6 @@ get '/subjects' do
 end
 
 post '/subjects' do 
-  File.ope("uploadErrors.log", "a") {|f| f.puts "having trouble params are #{params}"}
   unless params[:file] &&
         (tmpfile = params[:file][:tempfile]) &&
         (name = params[:file][:filename]) &&
@@ -130,6 +129,8 @@ post '/subjects' do
         (observation_id = params[:subject][:observation_id]) &&
         (obs = params[:subject][:obs])
   
+   File.open("uploadErrors.log", "a") {|f| f.puts "having trouble params are #{params}"}
+
    @error = "No file selected"
    return [406, "problem params are #{params}"]
  end
