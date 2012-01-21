@@ -121,7 +121,7 @@ get '/subjects' do
   RedisConnection.keys("#{redis_key_prefix}*").inject({}){|r,k| r[k]={:ttl=>RedisConnection.ttl(k)}; r }.to_json
 end
 
-post '/subjects/' do 
+post '/subjects' do 
   puts "having trouble params are #{params}"
   unless params[:file] &&
         (tmpfile = params[:file][:tempfile]) &&
