@@ -105,7 +105,7 @@ end
 post '/status/:status' do |status|
   allowed_states = ["active", "inactive"]
   if allowed_states.include? status
-    post("telescope", "status_changed", status)
+    push("telescope", "status_changed", status)
     RedisConnection.set "current_status", status
     return 201
   else 
