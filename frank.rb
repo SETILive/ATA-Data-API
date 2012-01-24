@@ -158,6 +158,8 @@ post '/subjects' do
 end
 
 def subject_key(observation_id, activity_id, pol)
+  redis_key_prefix= "subject_new_"
+
   "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}"
 end
 
