@@ -81,6 +81,8 @@ post '/current_target/:target_id' do |target_id|
   end
 
   RedisConnection.set "current_target", target_id 
+  push('telescope', 'target_changed' , targets.to_json)
+
 end
 
 
@@ -88,6 +90,10 @@ end
 get '/followup' do
   pending_followups = RedisConnection.get("follow_up_*")
   pending_followups.to_json
+end
+
+post '/followup/:activity_id' do |activity_id|
+  push('subjects', 'follow_up_triggered', activity_id )
 end
 
 #Getting and setting status 
@@ -99,8 +105,8 @@ end
 post '/status/:status' do |status|
   allowed_states = ["active", "inactive"]
   if allowed_states.include? status
+    post("telescope", "status_changed", status)
     RedisConnection.set "current_status", status
-    Pusher['telescope'].trigger('status Changed', status)
     return 201
   else 
     return [406,"status type not recognised"]
@@ -124,26 +130,41 @@ end
 
 post '/subjects' do 
   unless params[:file] &&
-        (tmpfile = params[:file][:tempfile]) &&
-        (name = params[:file][:filename]) &&
-        (activity_id = params[:subject][:activity_id]) &&
-        (observation_id = params[:subject][:observation_id]) &&
-        (pol = params[:subject][:pol])
-  
-  RedisConnection.set("error_key", params.to_json)
-   File.open("uploadErrors.log", "a") {|f| f.puts "having trouble params are #{params}"}
+    (tmpfile = params[:file][:tempfile]) &&
+    (name = params[:file][:filename]) &&
+    (activity_id = params[:subject][:activity_id]) &&
+    (observation_id = params[:subject][:observation_id]) &&
+    (pol = params[:subject][:pol])
 
-   @error = "No file selected"
-   return [406, "problem params are #{params}"]
- end
+    RedisConnection.set("error_key", params.to_json)
+    File.open("uploadErrors.log", "a") {|f| f.puts "having trouble params are #{params}"}
+
+    @error = "No file selected"
+    return [406, "problem params are #{params}"]
+  end
  
- STDOUT.puts "Uploading file, original name #{name.inspect}"
- file=''
+  STDOUT.puts "Uploading file, original name #{name.inspect}"
+  file=''
  
- while blk = tmpfile.read(65536)
-   file << blk
- end
- RedisConnection.set "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}", file
- RedisConnection.expire "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}", subject_life
- return [201, "created succesfully"]
+  while blk = tmpfile.read(65536)
+     file << blk
+  end
+  key = subject_key(observation_id, activity_id, pol)
+  RedisConnection.set key, file
+  RedisConnection.expire key, subject_life
+
+  push("subjects","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
+  return [201, "created succesfully"]
+end
+
+def subject_key(observation_id, activity_id, pol)
+  "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}"
+end
+
+def push(chanel, message, data)
+  begin
+    Pusher['chanel'].trigger('message', data)
+  rescue 
+    puts "could not push update #{chanel} #{message} #{data}"
+  end
 end
