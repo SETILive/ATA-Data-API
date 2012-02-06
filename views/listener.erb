@@ -1,0 +1,45 @@
+<html>
+  <head>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+
+    <script src="http://js.pusher.com/1.11/pusher.min.js"></script>
+
+
+    <script type ="text/javascript">
+
+      $(document).ready(function(){
+        var pusher = new Pusher("***REMOVED***");
+        var telescopeChannel = pusher.subscribe('telescope');
+        var subjectChannel = pusher.subscribe('subjects');
+        
+        subjectChannel.bind("follow_up_triggered", function(data){
+          $("#telescopeEvents").append("<li>"+data+"</li>");
+        });
+
+        subjectChannel.bind("follow_up_triggered", function(data){
+          $("#telescopeEvents").append("<li>"+data+"</li>");
+        });
+
+        telescopeChannel.bind("target_changed", function(data){
+          $("#subjectEvents").append("<li>"+data+"</li>")
+        });
+
+      });
+
+    </script>
+  </head>
+  <body>
+    <h1>Pusher messages <%=@status%></h1>
+ 
+    <h2>Telescope</h2>
+    <ul id="telescopeEvents" style="list-format='none'">
+
+    </ul>
+
+   
+   <h2>subjects</h2>
+    <ul id="subjectEvents" style="list-format='none'">
+
+    </ul>
+  </body>
+</html>

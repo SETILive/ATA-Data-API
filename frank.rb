@@ -5,7 +5,6 @@ require 'erb'
 require 'json'
 require 'pusher'
 
-require 'pusher'
 
 Pusher.app_id = '***REMOVED***'
 Pusher.key = '***REMOVED***'
@@ -16,8 +15,6 @@ redis_config = YAML.load_file('config/redis.yml')
 redis_config = redis_config['production'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 
 RedisConnection =Redis.new( redis_config  )
-
-
 
 # config = JSON.parse(IO.read("config.json"))
 
@@ -33,6 +30,10 @@ get  '/' do
   erb :index
 end
 
+
+get '/listener' do 
+  erb :listener
+end
 #Targets
 
 def target_key(target_id)
@@ -103,7 +104,7 @@ get '/status' do
 end
 
 post '/status/:status' do |status|
-  allowed_states = ["active", "inactive"]
+  allowed_states = ["active", "inactive", "replay"]
   if allowed_states.include? status
     push("telescope", "status_changed", status)
     RedisConnection.set "current_status", status
