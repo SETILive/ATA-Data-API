@@ -1,0 +1,62 @@
+Frank API
+
+
+Targets (objects in the sky)
+    
+    Create or update a target with a given ID
+    
+    post /targets/:id               
+    {target: {ra: 3, dec:4, target_name:"Crab" }}  can include other meta data 
+    
+
+    get /targets
+        returns a json list of target ids with their names 
+    
+    get /targets/2
+        returns the json of the current target with id 2 if it exists
+        
+    post /current_target/:id
+        {beam: {beam_no: 1}}
+        sets the current target that the telescope is looking at with beam no 1
+    
+    get /current_target/
+        returns the current list of targets in each beam 
+        
+Followups (requests for follow up)
+    get '/followups' 
+        returns a list of the currently pending followups
+    
+Status 
+    get '/status'
+        returns the current status of the telescope (currently can be active/inactive/followingUp)
+
+    post '/status/:state'
+        {status:'active'}
+        {status:'inactive'}
+        {status:'followingUp', :targets=>[{followUpId: 20}, {folowUpId:23}]}
+        sets the current status of the telescope we can include other status is needed
+
+Subjects 
+    post '/subjects/:id'
+        Multipost with file and 
+        {activity_id: 1, target_id :2, observation_id :3 }
+    
+    get '/subjects'
+        returns a list of all active subjects
+    
+    get '/subjects/:id'
+        get the subject with a specific id
+        
+    
+        
+Flow of work from Franks point of view 
+
+    1) Telescope starts working and Frank receives a post to /status?status=active
+    2) Telescope starts observing a new target with id 3, Frank receives a post to /targets/ with the new target info and a post to /current_target to update the current target 
+    3) Frank starts receiving data to post /subjects which represents new data
+    4) While this is happening charlie keeps polling /followups for potential followups
+    5) Marv starts picking up data form the cache and pushing it out to users he marks a followup request
+    6) a request form /followups yields a result, this is passed through the seti system and a decision is made to follow up or not 
+    7) a follow up is triggered. Frank receives a post to /status?status=followingup&followup_id=2323
+    8) frank continues to accept data including the follow up observations
+    9) frank receives a post to /status?status=active to inform him the telescope has gone back to normal operations
