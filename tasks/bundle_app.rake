@@ -24,6 +24,6 @@ task :bundle_app => :environment do
   AWS::S3::S3Object.rename "frank_new.tar.gz", "frank.tar.gz", "***REMOVED***"
   
   puts "Cleaning up"
-  `rm marv.tar.gz`
+  `rm frank.tar.gz`
   puts "Done"
 end
