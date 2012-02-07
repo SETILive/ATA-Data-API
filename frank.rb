@@ -6,9 +6,9 @@ require 'json'
 require 'pusher'
 
 
-Pusher.app_id = '***REMOVED***'
-Pusher.key = '***REMOVED***'
-Pusher.secret = '***REMOVED***'
+Pusher.app_id = ''
+Pusher.key = ''
+Pusher.secret =''
 
 
 redis_config = YAML.load_file('config/redis.yml')
