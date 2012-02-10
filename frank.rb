@@ -64,6 +64,10 @@ get '/targets/:id' do |target_id|
   end
 end
 
+get '/testPush' do
+  push 'telescope', 'status_changed', 'active'
+end
+
 get '/current_target' do 
   current_target_id = RedisConnection.get "current_target"
   return [404, "current target not set"] unless current_target_id 
