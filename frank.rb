@@ -65,7 +65,8 @@ get '/targets/:id' do |target_id|
 end
 
 get '/testPush' do
-  push 'telescope', 'status_changed', 'active'
+  push('telescope', 'status_test', '')
+  return [200, 'ok']
 end
 
 get '/current_target' do 
