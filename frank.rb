@@ -82,7 +82,7 @@ post '/current_target/:target_id' do |target_id|
   end
 
   RedisConnection.set "current_target", target_id 
-  push('telescope', 'target_changed' , target_id)
+  push('telescope', 'target_changed' , 'changed')
 
 end
 
@@ -150,11 +150,12 @@ post '/subjects' do
   while blk = tmpfile.read(65536)
      file << blk
   end
+  
   key = subject_key(observation_id, activity_id, pol)
   RedisConnection.set key, file
   RedisConnection.expire key, subject_life
 
-  push("subjects","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
+  push("telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
   return [201, "created succesfully"]
 end
 
