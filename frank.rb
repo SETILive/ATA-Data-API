@@ -46,7 +46,6 @@ post '/targets/:id' do |target_id|
   unless target_id && target_info
     return [406, "invalid target info"]
   end
-  push('telescope', 'target_changed' , 'changed')
 
   RedisConnection.set target_key(target_id), target_info.to_json
   return [201, "upadted target"]
