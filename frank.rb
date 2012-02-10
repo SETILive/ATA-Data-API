@@ -88,7 +88,7 @@ post '/current_target/:target_id' do |target_id|
   end
 
   RedisConnection.set "current_target", target_id 
-  push('telescope', 'target_changed' , 'changed')
+  push('telescope', 'target_changed' , params.to_json)
 
 end
 
