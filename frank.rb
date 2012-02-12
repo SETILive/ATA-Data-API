@@ -52,7 +52,7 @@ post '/targets/:id' do |target_id|
 end
 
 get '/targets' do 
-  RedisConnection.keys(target_key("*")).collect{|key| RedisConnection.get(key)}.to_json
+  RedisConnection.keys(target_key("*")).collect{|key| JSON.parse(RedisConnection.get(key))}.to_json
 end
 
 get '/targets/:id' do |target_id| 
