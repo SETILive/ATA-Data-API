@@ -51,8 +51,18 @@ post '/targets/:id' do |target_id|
   return [201, "upadted target"]
 end
 
-get '/targets' do 
-  RedisConnection.keys(target_key("*")).collect{|key| JSON.parse(RedisConnection.get(key))}.to_json
+get '/targets' do  
+  results =[]
+  keys = RedisConnection.keys(target_key("*"))
+
+  RedisConnection.mget(*keys).each_with_index do |data,index|
+    begin 
+      results<<  JSON.parse(data).merge({:target_id=> keys[index].gsub("target_","")})
+    rescue 
+      puts "failed to parse #{keys[index]}"
+    end
+  end
+  return [200, results.to_json ]
 end
 
 get '/targets/:id' do |target_id| 
