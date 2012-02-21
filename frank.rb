@@ -26,6 +26,7 @@ get  '/' do
   @keys   = RedisConnection.keys("#{redis_key_prefix}*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
   @status = RedisConnection.get "current_status"
   @pending_followups = RedisConnection.get "follow_ups"
+  @current_targets = RedisConnection.get("current_target")
   @errors = RedisConnection.get "error_key"
   erb :index
 end
@@ -46,6 +47,8 @@ post '/targets/:id' do |target_id|
   unless target_id && target_info
     return [406, "invalid target info"]
   end
+
+  RedisConnection.lpush 'log', {:type=>'targets_post', :date=>Time.now, :data=> params[:target]}.to_json
 
   RedisConnection.set target_key(target_id), target_info.to_json
   return [201, "upadted target"]
@@ -88,6 +91,8 @@ get '/current_target' do
 end
 
 post '/current_target/:target_id' do |target_id| 
+
+  
   unless target_id
     return [406, "include a target id"]
   end
@@ -95,6 +100,9 @@ post '/current_target/:target_id' do |target_id|
   unless RedisConnection.get target_key(target_id)
     return [406, "target not found in system. Please specify target by posting to /targets/ first"]
   end
+
+  RedisConnection.lpush 'log', {:type=>'current_target_post', :date=>Time.now, :data=> params}.to_json
+
 
   RedisConnection.set "current_target", target_id 
   push('telescope', 'target_changed' , params.to_json)
@@ -120,6 +128,9 @@ end
 
 post '/status/:status' do |status|
   allowed_states = ["active", "inactive", "replay"]
+
+  RedisConnection.lpush 'log', {:type=>'status_update', :date=>Time.now, :data=> {status: status}}.to_json
+
   if allowed_states.include? status
     push("telescope", "status_changed", status)
     RedisConnection.set "current_status", status
@@ -165,7 +176,10 @@ post '/subjects' do
   while blk = tmpfile.read(65536)
      file << blk
   end
-  
+
+  RedisConnection.lpush 'log', {:type=>'subject_upload', :date=>Time.now, :data=> {params: params, file: file}}.to_json
+
+
   key = subject_key(observation_id, activity_id, pol)
   RedisConnection.set key, file
   RedisConnection.expire key, subject_life
