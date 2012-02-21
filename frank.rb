@@ -92,7 +92,6 @@ end
 
 post '/current_target/:target_id' do |target_id| 
 
-  
   unless target_id
     return [406, "include a target id"]
   end
@@ -101,11 +100,14 @@ post '/current_target/:target_id' do |target_id|
     return [406, "target not found in system. Please specify target by posting to /targets/ first"]
   end
 
-  RedisConnection.lpush 'log', {:type=>'current_target_post', :date=>Time.now, :data=> params}.to_json
+  beamNo = params['target']['beam_no']
 
 
-  RedisConnection.set "current_target", target_id 
-  push('telescope', 'target_changed' , params.to_json)
+  unless RedisConnection.get("current_target_#{beamNo}") == target_id
+    RedisConnection.lpush 'log', {:type=>'current_target_post', :date=>Time.now, :data=> params}.to_json
+    RedisConnection.set "current_target_#{beamNo}", target_id 
+    push('telescope', 'target_changed' , params.to_json)
+  end
 
 end
 
@@ -126,10 +128,10 @@ get '/status' do
   return RedisConnection.get "current_status"
 end
 
-post '/status/:status' do |status|
+post '/status/:status_update' do |status|
   allowed_states = ["active", "inactive", "replay"]
 
-  RedisConnection.lpush 'log', {:type=>'status_update', :date=>Time.now, :data=> {status: status}}.to_json
+  RedisConnection.lpush 'log', {:type=>'status_update', :date=>Time.now, :data=> {:status => status}}.to_json
 
   if allowed_states.include? status
     push("telescope", "status_changed", status)
@@ -162,6 +164,7 @@ post '/subjects' do
     (activity_id = params[:subject][:activity_id]) &&
     (observation_id = params[:subject][:observation_id]) &&
     (pol = params[:subject][:pol])
+  
 
     RedisConnection.set("error_key", params.to_json)
     File.open("uploadErrors.log", "a") {|f| f.puts "having trouble params are #{params}"}
@@ -177,9 +180,8 @@ post '/subjects' do
      file << blk
   end
 
-  RedisConnection.lpush 'log', {:type=>'subject_upload', :date=>Time.now, :data=> {params: params, file: file}}.to_json
-
-
+  RedisConnection.lpush 'log', {:type=>'subject_upload', :date=>Time.now, :data=> {:params => params, :file => file}}
+ 
   key = subject_key(observation_id, activity_id, pol)
   RedisConnection.set key, file
   RedisConnection.expire key, subject_life
