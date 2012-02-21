@@ -12,8 +12,7 @@ test:
 
   
 production:
-  host: ***REMOVED***
-  port: 9359
+  host: redis.setilive.org
+  port: 6379
   db: 0
-  password: ***REMOVED***
-  username: redistogo
+  password: 6XlvB1HTJZJsEBRCIvri
