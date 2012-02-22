@@ -121,20 +121,18 @@ get '/followup' do
                  target_id: 1000, 
                  beam_no: 1,
                  pol: 0, 
-                 type: 'cw',
                  frequencies: [
-                  {start_freq: 1420.0, drift: 3.2}, 
-                  {start_freq: 1420.3, drift: 1.2}
+                  {start_freq: 1420.0, drift: 3.2, type: 'cw', shape: 'straight'}, 
+                  {start_freq: 1420.3, drift: 1.2, type: 'pulse', shape: 'diagional'}
                 ]},
                 {followup_id: 2,
                  activity_id: 1,
                  target_id: 1001,
                  beam_no: 1,
                  pol: 0, 
-                 type: 'cw',
                  frequencies:[
-                  {start_freq: 1420.0, drift: 3.2},
-                  {start_freq: 1420.3, drift: 1.2}
+                  {start_freq: 14230.0, drift: 3.2, type: 'pulse', shape: 'spiral'}, 
+                  {start_freq: 1220.3, drift: 1.2, type: 'pulse', shape: 'diagional'}
                 ]}]
 
   followups.to_json
