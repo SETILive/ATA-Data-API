@@ -114,8 +114,32 @@ end
 
 #follow_up_list These are set by MARV  
 get '/followup' do
-  pending_followups = RedisConnection.get("follow_up_*")
-  pending_followups.to_json
+
+
+  followups= [ {followup_id: 1,
+                 activity_id: 1,
+                 target_id: 1000, 
+                 beam_no: 1,
+                 pol: 0, 
+                 type: 'cw',
+                 frequencies: [
+                  {start_freq: 1420.0, drift: 3.2}, 
+                  {start_freq: 1420.3, drift: 1.2}
+                ]},
+                {followup_id: 2,
+                 activity_id: 1,
+                 target_id: 1001,
+                 beam_no: 1,
+                 pol: 0, 
+                 type: 'cw',
+                 frequencies:[
+                  {start_freq: 1420.0, drift: 3.2},
+                  {start_freq: 1420.3, drift: 1.2}
+                ]}]
+
+  followups.to_json
+  # pending_followups = RedisConnection.get("follow_up_*")
+  # pending_followups.to_json
 end
 
 post '/followup/:activity_id' do |activity_id|
