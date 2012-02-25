@@ -28,6 +28,7 @@ get  '/' do
   @pending_followups = RedisConnection.get "follow_ups"
   @current_targets = RedisConnection.get("current_target")
   @errors = RedisConnection.get "error_key"
+  @report = RedisConnection.get "report_key"
   erb :index
 end
 
@@ -186,7 +187,7 @@ post '/subjects' do
     (activity_id = params[:subject][:activity_id]) &&
     (observation_id = params[:subject][:observation_id]) &&
     (pol = params[:subject][:pol])
-    (sub_channel= params[:subject][:subchannel] )
+    (sub_channel = params[:subject][:subchannel] )
   
 
     RedisConnection.set("error_key", params.to_json)
@@ -195,6 +196,8 @@ post '/subjects' do
     @error = "No file selected"
     return [406, "problem params are #{params}"]
   end
+
+  RedisConnection.set report_key , params.to_json
  
   STDOUT.puts "Uploading file, original name #{name.inspect}"
   file=''
@@ -205,7 +208,7 @@ post '/subjects' do
 
   RedisConnection.lpush 'log', {:type=>'subject_upload', :date=>Time.now, :data=> {:params => params, :file => file}}
  
-  key = subject_key(observation_id, activity_id, pol,sub_channel )
+  key = subject_key(observation_id, activity_id, pol, sub_channel )
   RedisConnection.set key, file
   RedisConnection.expire key, subject_life
 
