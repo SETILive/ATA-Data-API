@@ -180,6 +180,10 @@ get '/subjects' do
   RedisConnection.keys("#{redis_key_prefix}*").inject({}){|r,k| r[k]={:ttl=>RedisConnection.ttl(k)}; r }.to_json
 end
 
+get '/key/:key' do |key|
+  RedisConnection.get key 
+end
+
 post '/subjects' do 
   RedisConnection.set report_key , params.to_json
 
