@@ -192,7 +192,7 @@ post '/subjects' do
     (name = params[:file][:filename]) &&
     (activity_id = params[:subject][:activity_id]) &&
     (observation_id = params[:subject][:observation_id]) &&
-    (pol = params[:subject][:pol])
+    (pol = params[:subject][:pol]) &&
     (sub_channel = params[:subject][:subchannel] )
   
 
