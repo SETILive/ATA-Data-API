@@ -181,6 +181,8 @@ get '/subjects' do
 end
 
 post '/subjects' do 
+  RedisConnection.set report_key , params.to_json
+
   unless params[:file] &&
     (tmpfile = params[:file][:tempfile]) &&
     (name = params[:file][:filename]) &&
@@ -197,7 +199,6 @@ post '/subjects' do
     return [406, "problem params are #{params}"]
   end
 
-  RedisConnection.set report_key , params.to_json
  
   STDOUT.puts "Uploading file, original name #{name.inspect}"
   file=''
