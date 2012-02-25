@@ -186,7 +186,7 @@ post '/subjects' do
     (activity_id = params[:subject][:activity_id]) &&
     (observation_id = params[:subject][:observation_id]) &&
     (pol = params[:subject][:pol])
-    (sub_channel= params[:subchannel] )
+    (sub_channel= params[:subject][:subchannel] )
   
 
     RedisConnection.set("error_key", params.to_json)
