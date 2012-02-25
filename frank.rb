@@ -185,7 +185,7 @@ get '/key/:key' do |key|
 end
 
 post '/subjects' do 
-  RedisConnection.set report_key , params.to_json
+  RedisConnection.set "report_key" , params.to_json
 
   unless params[:file] &&
     (tmpfile = params[:file][:tempfile]) &&
