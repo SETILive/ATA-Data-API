@@ -181,7 +181,7 @@ get '/subjects' do
 end
 
 get '/key/:key' do |key|
-  RedisConnection.get key 
+  "key is #{RedisConnection.get key }"
 end
 
 post '/subjects' do 
