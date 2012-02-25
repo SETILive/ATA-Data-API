@@ -186,6 +186,7 @@ post '/subjects' do
     (activity_id = params[:subject][:activity_id]) &&
     (observation_id = params[:subject][:observation_id]) &&
     (pol = params[:subject][:pol])
+    (sub_channel= subject[:subchannel] )
   
 
     RedisConnection.set("error_key", params.to_json)
@@ -204,7 +205,7 @@ post '/subjects' do
 
   RedisConnection.lpush 'log', {:type=>'subject_upload', :date=>Time.now, :data=> {:params => params, :file => file}}
  
-  key = subject_key(observation_id, activity_id, pol)
+  key = subject_key(observation_id, activity_id, pol,sub_channel )
   RedisConnection.set key, file
   RedisConnection.expire key, subject_life
 
@@ -212,10 +213,10 @@ post '/subjects' do
   return [201, "created succesfully"]
 end
 
-def subject_key(observation_id, activity_id, pol)
-  redis_key_prefix= "subject_new_"
+def subject_key(observation_id, activity_id, pol,sub_channel)
+  redis_key_prefix= "subject_new"
 
-  "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}"
+  "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}_#{sub_channel}"
 end
 
 def push(chanel, message, data)
