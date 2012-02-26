@@ -184,6 +184,10 @@ get '/key/:key' do |key|
   "key is #{RedisConnection.get key }"
 end
 
+post '/offilne_subjects'
+  return [200, 'subject_accepted']
+end
+
 post '/subjects' do 
   RedisConnection.set "report_key" , params.to_json
 
