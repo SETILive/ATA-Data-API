@@ -184,7 +184,7 @@ get '/key/:key' do |key|
   "key is #{RedisConnection.get key }"
 end
 
-post '/offilne_subjects'
+post '/offilne_subjects' do
   return [200, 'subject_accepted']
 end
 
