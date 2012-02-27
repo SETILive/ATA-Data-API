@@ -49,7 +49,7 @@ post '/targets/:id' do |target_id|
     return [406, "invalid target info"]
   end
 
-  RedisConnection.lpush 'log', {:type=>'targets_post', :date=>Time.now, :data=> params[:target]}.to_json
+  # RedisConnection.lpush 'log', {:type=>'targets_post', :date=>Time.now, :data=> params[:target]}.to_json
 
   RedisConnection.set target_key(target_id), target_info.to_json
   return [201, "upadted target"]
@@ -105,7 +105,7 @@ post '/current_target/:target_id' do |target_id|
 
 
   unless RedisConnection.get("current_target_#{beamNo}") == target_id
-    RedisConnection.lpush 'log', {:type=>'current_target_post', :date=>Time.now, :data=> params}.to_json
+    # RedisConnection.lpush 'log', {:type=>'current_target_post', :date=>Time.now, :data=> params}.to_json
     RedisConnection.set "current_target_#{beamNo}", target_id 
     push('telescope', 'target_changed' , params.to_json)
   end
@@ -154,7 +154,7 @@ end
 post '/status/:status_update' do |status|
   allowed_states = ["active", "inactive", "replay"]
 
-  RedisConnection.lpush 'log', {:type=>'status_update', :date=>Time.now, :data=> {:status => status}}.to_json
+  # RedisConnection.lpush 'log', {:type=>'status_update', :date=>Time.now, :data=> {:status => status}}.to_json
 
   if allowed_states.include? status
     push("telescope", "status_changed", status)
@@ -215,7 +215,7 @@ post '/subjects' do
      file << blk
   end
 
-  RedisConnection.lpush 'log', {:type=>'subject_upload', :date=>Time.now, :data=> {:params => params, :file => file}}
+  # RedisConnection.lpush 'log', {:type=>'subject_upload', :date=>Time.now, :data=> {:params => params, :file => file}}
  
   key = subject_key(observation_id, activity_id, pol, sub_channel )
   RedisConnection.set key, file
