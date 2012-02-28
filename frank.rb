@@ -220,6 +220,7 @@ post '/subjects' do
   key = subject_key(observation_id, activity_id, pol, sub_channel )
   RedisConnection.set key, file
   RedisConnection.expire key, subject_life
+  RedisConnection.persist key 
 
   push("telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
   return [201, "created succesfully"]
