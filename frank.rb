@@ -19,7 +19,7 @@ RedisConnection =Redis.new( redis_config  )
 # config = JSON.parse(IO.read("config.json"))
 
 redis_key_prefix= "subject_new_"
-subject_life = 93*3
+subject_life = 93*10
 
 #Index path should show all the keys and 
 get  '/' do 
