@@ -1,5 +1,5 @@
 desc 'Bundle application and upload it to S3'
-task bundle_app: :environment do
+task :bundle_app do
   require 'aws-sdk'
   AWS.config access_key_id: '***REMOVED***', secret_access_key: '***REMOVED***'
   
