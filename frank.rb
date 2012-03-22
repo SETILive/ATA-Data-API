@@ -4,6 +4,7 @@ require 'yaml'
 require 'erb'
 require 'json'
 require 'pusher'
+require 'bson'
 
 
 Pusher.app_id = '***REMOVED***'
@@ -12,18 +13,25 @@ Pusher.secret ='***REMOVED***'
 
 
 redis_config = YAML.load_file('config/redis.yml')
-redis_config = redis_config['production'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
+redis_config = redis_config['development'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
+
+puts redis_config
 
 RedisConnection =Redis.new( redis_config  )
 
 # config = JSON.parse(IO.read("config.json"))
 
 redis_key_prefix= "subject_new_"
+redis_recent_prefix= "subject_recent_"
+
+puts "keys ", RedisConnection.keys("*")
 subject_life = 93*10
 
 #Index path should show all the keys and 
 get  '/' do 
   @keys   = RedisConnection.keys("#{redis_key_prefix}*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
+  @recent_subjects = RedisConnection.keys("#{redis_recent_prefix}*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
+  @data_keys = RedisConnection.keys("subject_data_new*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
   @status = RedisConnection.get "current_status"
   @pending_followups = RedisConnection.get "follow_ups"
   @current_targets = RedisConnection.get("current_target")
@@ -214,22 +222,36 @@ post '/subjects' do
   while blk = tmpfile.read(65536)
      file << blk
   end
+  file = BSON.deserialize(file)
 
   # RedisConnection.lpush 'log', {:type=>'subject_upload', :date=>Time.now, :data=> {:params => params, :file => file}}
  
-  key = subject_key(observation_id, activity_id, pol, sub_channel )
-  RedisConnection.set key, file
-  RedisConnection.expire key, subject_life
+  key      = subject_key(observation_id, activity_id, pol, sub_channel )
+
+  file["beam"].each do |beam|
+    beam_no   = beam['beam']
+    data = beam.delete('data').to_a 
+    data_key = subject_data_key(observation_id, activity_id, pol, sub_channel,beam_no )
+    RedisConnection.setex data_key, subject_life, data.to_json
+    RedisConnection.persist data_key
+  end 
+
+  RedisConnection.setex key, subject_life, file.to_json
   RedisConnection.persist key 
 
   push("telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
+  
   return [201, "created succesfully"]
 end
 
 def subject_key(observation_id, activity_id, pol,sub_channel)
   redis_key_prefix= "subject_new"
-
   "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}_#{sub_channel}"
+end
+
+def subject_data_key(observation_id, activity_id, pol,sub_channel,beam_no)
+  redis_key_prefix= "subject_data_new"
+  "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}_#{sub_channel}_#{beam_no}"
 end
 
 def push(chanel, message, data)
