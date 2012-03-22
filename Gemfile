@@ -5,7 +5,8 @@ gem 'redis', '2.2.2'
 gem 'pusher', '0.8.5'
 gem 'aws-s3', '0.6.2', :require => 'aws/s3'
 
-gem 'bson'
+gem 'bson', '1.5.2'
+
 group :development, :test do
   gem 'aws-sdk'
 end
