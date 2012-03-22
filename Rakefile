@@ -14,6 +14,13 @@ require 'aws/s3'
 # end
 
 
+
+#!/usr/bin/env rake
+# Add your own tasks in files placed in lib/tasks ending in .rake,
+# for example lib/tasks/capistrano.rake, and they will automatically be available to Rake.
+
+
+
 desc "Bundle application to S3"
 task :bundle_app  do
   puts "Bundling application to S3"
@@ -34,20 +41,14 @@ task :bundle_app  do
   
   # rename the old file
   puts "Renaming old code bundle"
-  AWS::S3::S3Object.rename "frank.tar.gz", "marv-#{Time.now.strftime('%H%M-%d%m%y')}.tar.gz", "***REMOVED***"
+  AWS::S3::S3Object.rename "frank.tar.gz", "frank-#{Time.now.strftime('%H%M-%d%m%y')}.tar.gz", "***REMOVED***"
   
   # rename the new file
   AWS::S3::S3Object.rename "frank_new.tar.gz", "frank.tar.gz", "***REMOVED***"
   
   puts "Cleaning up"
-  `rm marv.tar.gz`
+  `rm frank.tar.gz`
   puts "Done"
 end
-
-#!/usr/bin/env rake
-# Add your own tasks in files placed in lib/tasks ending in .rake,
-# for example lib/tasks/capistrano.rake, and they will automatically be available to Rake.
-
-
 
 
