@@ -12,7 +12,7 @@ test:
 
   
 production:
-  host: redis.setilive.org
-  port: 6379
-  db: 0
-  password: 6XlvB1HTJZJsEBRCIvri
+  host: ***REMOVED***
+  thread_safe: true
+  password: ***REMOVED***
+  port: 6381
