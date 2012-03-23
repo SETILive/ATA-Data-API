@@ -25,7 +25,7 @@ redis_key_prefix= "subject_new_"
 redis_recent_prefix= "subject_recent_"
 
 puts "keys ", RedisConnection.keys("*")
-subject_life = 93*10
+subject_life = 5*60
 
 #Index path should show all the keys and 
 get  '/' do 
