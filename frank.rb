@@ -233,11 +233,9 @@ post '/subjects' do
     data = beam.delete('data').to_a 
     data_key = subject_data_key(observation_id, activity_id, pol, sub_channel,beam_no )
     RedisConnection.setex data_key, subject_life, data.to_json
-    RedisConnection.persist data_key
   end 
 
-  RedisConnection.setex key, subject_life, file.to_json
-  RedisConnection.persist key 
+  RedisConnection.setex key, subject_life+10, file.to_json
 
   push("telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
   
