@@ -145,7 +145,7 @@ get '/followup' do
   #               ]}]
 
   # followups.to_json
-  pending_followups = RedisConnection.keys("follow_up_*").collect{|key| RedisConnection.get key}
+  pending_followups = RedisConnection.keys("follow_up_*").collect{|key| JSON.parse(RedisConnection.get(key))}
   {followups: pending_followups}.to_json
 end
 
