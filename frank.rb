@@ -13,7 +13,7 @@ Pusher.secret ='***REMOVED***'
 
 
 redis_config = YAML.load_file('config/redis.yml')
-redis_config = redis_config['production'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
+redis_config = redis_config['development'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 
 puts redis_config
 
@@ -25,7 +25,7 @@ redis_key_prefix= "subject_new_"
 redis_recent_prefix= "subject_recent_"
 
 puts "keys ", RedisConnection.keys("*")
-subject_life = 5*60
+subject_life = 2*60
 
 #Index path should show all the keys and 
 get  '/' do 
@@ -146,7 +146,7 @@ get '/followup' do
 
   # followups.to_json
   pending_followups = RedisConnection.keys("follow_up_*").collect{|key| JSON.parse(RedisConnection.get(key))}
-  {followups: pending_followups}.to_json
+  {followups: [pending_followups[0]]}.to_json
 end
 
 post '/followup/:activity_id' do |activity_id|
@@ -198,7 +198,10 @@ end
 
 post '/subjects' do 
   RedisConnection.set "report_key" , params.to_json
-
+  puts "activity id ", params[:subject][:activity_id]
+  puts "observation id ", params[:subject][:observation_id]
+  puts "pol ", params[:subject][:pol]
+  puts "subchannel", params[:subject][:subchannel] 
   unless params[:file] &&
     (tmpfile = params[:file][:tempfile]) &&
     (name = params[:file][:filename]) &&
