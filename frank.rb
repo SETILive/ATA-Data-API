@@ -86,7 +86,7 @@ get '/targets/:id' do |target_id|
 end
 
 get '/testPush' do
-  push('telescope', 'status_test', '')
+  push('dev-telescope', 'status_test', '')
   return [200, 'ok']
 end
 
@@ -115,7 +115,7 @@ post '/current_target/:target_id' do |target_id|
   unless RedisConnection.get("current_target_#{beamNo}") == target_id
     # RedisConnection.lpush 'log', {:type=>'current_target_post', :date=>Time.now, :data=> params}.to_json
     RedisConnection.set "current_target_#{beamNo}", target_id 
-    push('telescope', 'target_changed' , params.to_json)
+    push('dev-telescope', 'target_changed' , params.to_json)
   end
 
 end
@@ -165,7 +165,7 @@ post '/status/:status_update' do |status|
   # RedisConnection.lpush 'log', {:type=>'status_update', :date=>Time.now, :data=> {:status => status}}.to_json
 
   if allowed_states.include? status
-    push("telescope", "status_changed", status)
+    push("dev-telescope", "status_changed", status)
     RedisConnection.set "current_status", status
     return 201
   else 
@@ -240,7 +240,7 @@ post '/subjects' do
 
   RedisConnection.setex key, subject_life+10, file.to_json
 
-  push("telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
+  push("dev-telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
   
   return [201, "created succesfully"]
 end
