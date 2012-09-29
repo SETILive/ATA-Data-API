@@ -1,3 +1,6 @@
+#Need to have RACK_ENV environment variable set to "development" or "test" to
+#avoid "production" default.
+
 require 'sinatra'
 require 'redis'
 require 'yaml'
@@ -11,9 +14,12 @@ Pusher.app_id = '***REMOVED***'
 Pusher.key = '***REMOVED***'
 Pusher.secret ='***REMOVED***'
 
+mode_str = 'production'
+mode_str = 'development' if Sinatra::Base.development? 
+mode_str = 'test' if Sinatra::Base.test? 
 
 redis_config = YAML.load_file('config/redis.yml')
-redis_config = redis_config['production'].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
+redis_config = redis_config[mode_str].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 
 puts redis_config
 
@@ -196,7 +202,7 @@ post '/offilne_subjects' do
   return [200, 'subject_accepted']
 end
 
-post '/subjects' do 
+post '/subjects' do
   RedisConnection.set "report_key" , params.to_json
   puts "activity id ", params[:subject][:activity_id]
   puts "observation id ", params[:subject][:observation_id]
@@ -217,8 +223,8 @@ post '/subjects' do
     @error = "No file selected"
     return [406, "problem params are #{params}"]
   end
+  
 
- 
   STDOUT.puts "Uploading file, original name #{name.inspect}"
   file=''
  
@@ -233,7 +239,7 @@ post '/subjects' do
 
   file["beam"].each do |beam|
     beam_no   = beam['beam']
-    data = beam.delete('data').to_a 
+    data = beam.delete('data').to_a
     data_key = subject_data_key(observation_id, activity_id, pol, sub_channel,beam_no )
     RedisConnection.setex data_key, subject_life, data.to_json
   end 
@@ -255,10 +261,12 @@ def subject_data_key(observation_id, activity_id, pol,sub_channel,beam_no)
   "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}_#{sub_channel}_#{beam_no}"
 end
 
-def push(chanel, message, data)
+def push(chanel, message, data)  
+  chan_prefix = Sinatra::Base.development? ? 'dmode-' : ''
+  chan = chan_prefix + chanel
   begin
-    Pusher[chanel].trigger(message, data)
+    Pusher[chan].trigger(message, data)
   rescue 
-    puts "could not push update #{chanel} #{message} #{data}"
+    puts "could not push update #{chan} #{message} #{data}"
   end
 end
