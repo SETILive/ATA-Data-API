@@ -8,6 +8,10 @@ require 'erb'
 require 'json'
 require 'pusher'
 require 'bson'
+require 'sidekiq'
+require 'aws-sdk'
+require 'uuid'
+#require 'debugger' ; debugger
 
 
 Pusher.app_id = '***REMOVED***'
@@ -27,17 +31,130 @@ RedisConnection =Redis.new( redis_config  )
 
 # config = JSON.parse(IO.read("config.json"))
 
+require 'chunky_png'
+
+subject_time = 160
+newdata_time = 180
+
+if Sinatra::Base.development?
+  # Configure for 
+  # https://github.com/jubos/fake-s3 (Ruby)
+  # or
+  # https://github.com/jserver/mock-s3 (Python)
+  # Haven't made either of these work yet.
+  AWS.config :access_key_id=>'123', :secret_access_key => 'abc', 
+    :use_ssl => false, :s3_port => 10001, :s3_endpoint => 'localhost'
+else
+  AWS.config :access_key_id=>'***REMOVED***', :secret_access_key => '***REMOVED***'
+end
+
+# Uploads a subject's data/images to S3 using temporary urls and puts the urls
+# into redis for Marv to retrieve and construct the Subject and Observation
+# object.
+# Replaces data in observation key with data and image urls in json format.
+class ObservationUploader
+  include Sidekiq::Worker 
+
+  @data = nil
+  @subject = nil
+  @file_root = nil
+  # Gets subject data key from which observation data keys can be derived.
+  def perform( subj_key )
+    @subject = JSON.parse(RedisConnection.get( subj_key ) )
+    beam_key_root = subj_key.sub("tmp_new", "tmp_data_new")
+    keys = RedisConnection.keys( beam_key_root + "_?")
+    
+    keys.each do |key|
+      @data = JSON.parse(RedisConnection.get(key))
+      key_parse = key.split("_")
+      @file_root = "observation_" + key_parse[0] + "_" + key_parse.last
+      @path_to_data = upload_file( "data/" + @file_root + ".jsonp", @data )
+      @image_urls      = generate_images
+      urls = [@image_urls[:image_url], @image_urls[:thumbs], @path_to_data]
+      new_data_key = key.sub( "_tmp_", "_subject_")
+      RedisConnection.del( key )
+      RedisConnection.setex(new_data_key, RedisConnection.ttl("subject_timer") + 20, 
+        urls.to_json )
+    end
+    new_subj_key = subj_key.sub( "_tmp_", "_subject_" )
+    RedisConnection.rename( subj_key, new_subj_key )
+    RedisConnection.expire( new_subj_key, RedisConnection.ttl("subject_timer") )
+  end
+
+  def upload_file(name , data)
+    if Sinatra::Base.development?
+      #Kluge to avoid sending data to S3 in dev mode if live data is emulated.
+      # Need folders already created in ~/s3store/zooniverse-seti/
+      # images, thumbs, data
+      # Run local HTTP file server in s3store on port 9914
+      # (i.e. python -m SimpleHTTPServer 9914) 
+      bucket_home = ENV['HOME'] + '/' + 's3store'
+      bucket_name = 'zooniverse-seti-dev'
+      file_path = bucket_home + '/' + bucket_name + '/' + name
+      object_file = File.open( file_path, 'w' )
+      object_file.write( data )
+      object_file.close
+      'http://localhost:9914/' + bucket_name + "/" + name
+    else
+      s3 = AWS::S3.new
+      bucket = s3.buckets['zooniverse-seti-dev']
+      object = bucket.objects[name]
+      object.write( data, :acl=>:public_read )
+      object.public_url
+    end
+  end
+
+  def generate_images
+    # This is a departure from SETILive 1.0. Main waterfall image is pixel-for-pixel
+    # Thumbnail image is scaled down by a factor of three with boxcar smoothing
+    # and will be directly used for observation images under the main waterfall
+    # in order to avoid dependence on unspecified browser image scaling routines.
+    
+    img_width  = 768 #758
+    img_height = 384 #410
+
+    thumb_image_width = 128
+    thumb_image_height = 64
+
+    data = @data
+    main_image  = make_png(data, @observation, img_width,img_height)
+    thumb_image = make_png(data, @observation, thumb_image_width,thumb_image_height)
+    
+    image_url = upload_file("images/observation_#{@file_root}.png",main_image.to_s)
+    thumb_url = upload_file("thumbs/observation_#{@file_root}.png",thumb_image.to_s)
+    {image: image_url, thumb: thumb_url}
+  end 
+
+  def make_png(data, observation, img_width,img_height)
+    png = ChunkyPNG::Image.new(img_width, img_height, ChunkyPNG::Color.grayscale(255))
+    width  = @subject['width']
+    height = @subject['height']
+    xratio = 1.0*width/img_width
+    yratio = 1.0*height/img_height
+    beam = data
+    (0..(img_width-1)).each do |xpos|
+      (0..(img_height-1)).each do |ypos|
+        x= (xpos*xratio).to_int
+        y= (ypos*yratio).to_int
+        pos = x + width*y
+        val = beam[pos]
+        val = 0 unless val >= 0
+        val = 255 unless val <= 255
+        png[xpos,ypos] = ChunkyPNG::Color.grayscale(val)
+      end
+    end    
+    png
+  end
+
+end
 redis_key_prefix= "subject_new_"
 redis_recent_prefix= "subject_recent_"
 
-puts "keys ", RedisConnection.keys("*")
-subject_life = 2*60
-
 #Index path should show all the keys and 
 get  '/' do 
-  @keys   = RedisConnection.keys("#{redis_key_prefix}*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
-  @recent_subjects = RedisConnection.keys("#{redis_recent_prefix}*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
-  @data_keys = RedisConnection.keys("subject_data_new*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
+  @keys   = RedisConnection.keys("*#{redis_key_prefix}*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
+  @recent_subjects = RedisConnection.keys("*#{redis_recent_prefix}*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
+  @data_keys = RedisConnection.keys("*subject_data_new*").collect{|k| "#{k} : #{RedisConnection.ttl k} "}
   @status = RedisConnection.get "current_status"
   @pending_followups = RedisConnection.get "follow_ups"
   @current_targets = RedisConnection.get("current_target")
@@ -92,7 +209,7 @@ get '/targets/:id' do |target_id|
 end
 
 get '/testPush' do
-  push('dev-telescope', 'status_test', '')
+  push('telescope', 'status_test', '')
   return [200, 'ok']
 end
 
@@ -121,7 +238,7 @@ post '/current_target/:target_id' do |target_id|
   unless RedisConnection.get("current_target_#{beamNo}") == target_id
     # RedisConnection.lpush 'log', {:type=>'current_target_post', :date=>Time.now, :data=> params}.to_json
     RedisConnection.set "current_target_#{beamNo}", target_id 
-    push('dev-telescope', 'target_changed' , params.to_json)
+    push('telescope', 'target_changed' , params.to_json)
   end
 
 end
@@ -171,7 +288,7 @@ post '/status/:status_update' do |status|
   # RedisConnection.lpush 'log', {:type=>'status_update', :date=>Time.now, :data=> {:status => status}}.to_json
 
   if allowed_states.include? status
-    push("dev-telescope", "status_changed", status)
+    push("telescope", "status_changed", status)
     RedisConnection.set "current_status", status
     return 201
   else 
@@ -182,7 +299,7 @@ end
 #Subjects
 
 get '/subjects/:activity_id' do |activity_id|
-  subject = RedisConnection.get("#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{obs}")
+  subject = RedisConnection.get("*#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{obs}")
   if subject 
     return subject.to_json
   else 
@@ -191,7 +308,7 @@ get '/subjects/:activity_id' do |activity_id|
 end
 
 get '/subjects' do
-  RedisConnection.keys("#{redis_key_prefix}*").inject({}){|r,k| r[k]={:ttl=>RedisConnection.ttl(k)}; r }.to_json
+  RedisConnection.keys("*#{redis_key_prefix}*").inject({}){|r,k| r[k]={:ttl=>RedisConnection.ttl(k)}; r }.to_json
 end
 
 get '/key/:key' do |key|
@@ -203,6 +320,12 @@ post '/offilne_subjects' do
 end
 
 post '/subjects' do
+  #Start followup window timer on receipt of first subject
+  unless RedisConnection.get("subject_timer") 
+    RedisConnection.setex("subject_timer", subject_time, "")
+    RedisConnection.setex("time_to_newdata",newdata_time, "")
+    push('dev-telescope', "new_telescope_data", "")
+  end
   RedisConnection.set "report_key" , params.to_json
   puts "activity id ", params[:subject][:activity_id]
   puts "observation id ", params[:subject][:observation_id]
@@ -224,6 +347,10 @@ post '/subjects' do
     return [406, "problem params are #{params}"]
   end
   
+  # Temporary identifier for temporary redis keys and image/data filenames. 
+  # Marv will create proper database entries and modify urls when subject 
+  # is served. 
+  uuid = UUID.new.generate
 
   STDOUT.puts "Uploading file, original name #{name.inspect}"
   file=''
@@ -235,29 +362,34 @@ post '/subjects' do
 
   # RedisConnection.lpush 'log', {:type=>'subject_upload', :date=>Time.now, :data=> {:params => params, :file => file}}
  
-  key      = subject_key(observation_id, activity_id, pol, sub_channel )
-
+  #key      = subject_key(observation_id, activity_id, pol, sub_channel )
+  tmp_key = uuid + "_" + tmp_key(
+    observation_id, activity_id, pol, sub_channel )
   file["beam"].each do |beam|
     beam_no   = beam['beam']
     data = beam.delete('data').to_a
-    data_key = subject_data_key(observation_id, activity_id, pol, sub_channel,beam_no )
-    RedisConnection.setex data_key, subject_life, data.to_json
+    #data_key = subject_data_key(observation_id, activity_id, pol, sub_channel,beam_no )
+    tmp_data_key = uuid + "_" + tmp_data_key(observation_id, activity_id, pol, sub_channel, beam_no )
+    RedisConnection.setex tmp_data_key, subject_time, data.to_json
+    #RedisConnection.setex data_key, subject_life, data.to_json
   end 
 
-  RedisConnection.setex key, subject_life+10, file.to_json
+#  RedisConnection.setex key, subject_life+10, file.to_json
+  RedisConnection.setex tmp_key, subject_time, file.to_json
+  ObservationUploader.new.perform(tmp_key)
 
-  push("dev-telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
+  push("telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
   
   return [201, "created succesfully"]
 end
 
-def subject_key(observation_id, activity_id, pol,sub_channel)
-  redis_key_prefix= "subject_new"
+def tmp_key(observation_id, activity_id, pol,sub_channel)
+  redis_key_prefix= "tmp_new"
   "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}_#{sub_channel}"
 end
 
-def subject_data_key(observation_id, activity_id, pol,sub_channel,beam_no)
-  redis_key_prefix= "subject_data_new"
+def tmp_data_key(observation_id, activity_id, pol,sub_channel,beam_no)
+  redis_key_prefix= "tmp_data_new"
   "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}_#{sub_channel}_#{beam_no}"
 end
 
