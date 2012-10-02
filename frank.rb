@@ -70,7 +70,7 @@ class ObservationUploader
       @file_root = "observation_" + key_parse[0] + "_" + key_parse.last
       @path_to_data = upload_file( "data/" + @file_root + ".jsonp", @data )
       @image_urls      = generate_images
-      urls = [@image_urls[:image_url], @image_urls[:thumbs], @path_to_data]
+      urls = [@image_urls[:image], @image_urls[:thumb], @path_to_data]
       new_data_key = key.sub( "_tmp_", "_subject_")
       RedisConnection.del( key )
       RedisConnection.setex(new_data_key, RedisConnection.ttl("subject_timer") + 20, 
