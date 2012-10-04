@@ -126,24 +126,20 @@ class ObservationUploader
   end 
 
   def make_png(data, observation, img_width,img_height)
-    png = ChunkyPNG::Image.new(img_width, img_height, ChunkyPNG::Color.grayscale(255))
     width  = @subject['width']
     height = @subject['height']
-    xratio = 1.0*width/img_width
-    yratio = 1.0*height/img_height
+    png = ChunkyPNG::Image.new(width, height, ChunkyPNG::Color.grayscale(255))
     beam = data
-    (0..(img_width-1)).each do |xpos|
-      (0..(img_height-1)).each do |ypos|
-        x= (xpos*xratio).to_int
-        y= (ypos*yratio).to_int
-        pos = x + width*y
-        val = beam[pos]
-        val = 0 unless val >= 0
-        val = 255 unless val <= 255
-        png[xpos,ypos] = ChunkyPNG::Color.grayscale(val)
+    (0..(height-1)).each do |ypos|
+      row = beam[(ypos*width) .. ((ypos+1)*width-1)]
+      row.each_with_index do |val, idx|
+        val = 255 if val > 255
+        val = 0 if val < 0
+        row[idx] = ChunkyPNG::Color.grayscale(val)
       end
-    end    
-    png
+      png.replace_row!(ypos,row)
+    end
+    png.resample_nearest_neighbor!(img_width,img_height)
   end
 
 end
@@ -347,14 +343,14 @@ post '/subjects' do
     beam_no   = beam['beam']
     data = beam.delete('data').to_a
     #data_key = subject_data_key(observation_id, activity_id, pol, sub_channel,beam_no )
-    tmp_data_key = uuid + "_" + tmp_data_key(observation_id, activity_id, pol, sub_channel, beam_no )
-    RedisConnection.setex tmp_data_key, subject_time, data.to_json
+      tmp_data_key = uuid + "_" + tmp_data_key(observation_id, activity_id, pol, sub_channel, beam_no )
+      RedisConnection.setex tmp_data_key, subject_time, data.to_json
     #RedisConnection.setex data_key, subject_life, data.to_json
-  end 
+    end
 
 #  RedisConnection.setex key, subject_life+10, file.to_json
-  RedisConnection.setex tmp_key, subject_time, file.to_json
-  ObservationUploader.new.perform(tmp_key)
+    RedisConnection.setex tmp_key, subject_time, file.to_json
+    ObservationUploader.new.perform(tmp_key)
 
   push("telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
   
