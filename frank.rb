@@ -120,8 +120,8 @@ class ObservationUploader
     main_image  = make_png(data, @observation, img_width,img_height)
     thumb_image = make_png(data, @observation, thumb_image_width,thumb_image_height)
     
-    image_url = upload_file("images/observation_#{@file_root}.png",main_image.to_s)
-    thumb_url = upload_file("thumbs/observation_#{@file_root}.png",thumb_image.to_s)
+    image_url = upload_file("images/#{@file_root}.png",main_image.to_s)
+    thumb_url = upload_file("thumbs/#{@file_root}.png",thumb_image.to_s)
     {image: image_url, thumb: thumb_url}
   end 
 
@@ -246,28 +246,6 @@ end
 
 #follow_up_list These are set by MARV  
 get '/followup' do
-
-
-  # followups= [ {followup_id: 1,
-  #                activity_id: 1,
-  #                target_id: 1000, 
-  #                beam_no: 1,
-  #                pol: 0, 
-  #                frequencies: [
-  #                 {start_freq: 1420.0, drift: 3.2, type: 'cw', shape: 'straight'}, 
-  #                 {start_freq: 1420.3, drift: 1.2, type: 'pulse', shape: 'diagional'}
-  #               ]},
-  #               {followup_id: 2,
-  #                activity_id: 1,
-  #                target_id: 1001,
-  #                beam_no: 1,
-  #                pol: 0, 
-  #                frequencies:[
-  #                 {start_freq: 14230.0, drift: 3.2, type: 'pulse', shape: 'spiral'}, 
-  #                 {start_freq: 1220.3, drift: 1.2, type: 'pulse', shape: 'diagional'}
-  #               ]}]
-
-  # followups.to_json
   pending_followups = RedisConnection.keys("follow_up_*").collect{|key| JSON.parse(RedisConnection.get(key))}
   {followups: [pending_followups[0]]}.to_json
 end
