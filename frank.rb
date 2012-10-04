@@ -339,19 +339,28 @@ post '/subjects' do
   #key      = subject_key(observation_id, activity_id, pol, sub_channel )
   tmp_key = uuid + "_" + tmp_key(
     observation_id, activity_id, pol, sub_channel )
+  is_empty = true
+  empty_beams = []
   file["beam"].each do |beam|
     beam_no   = beam['beam']
     data = beam.delete('data').to_a
-    #data_key = subject_data_key(observation_id, activity_id, pol, sub_channel,beam_no )
+    if data.nil? or data.empty? or (data-[0]).empty?
+      puts "WARNING: Empty beam" 
+      empty_beams << beam
+    else
+      is_empty = false
       tmp_data_key = uuid + "_" + tmp_data_key(observation_id, activity_id, pol, sub_channel, beam_no )
       RedisConnection.setex tmp_data_key, subject_time, data.to_json
-    #RedisConnection.setex data_key, subject_life, data.to_json
     end
-
+  end 
 #  RedisConnection.setex key, subject_life+10, file.to_json
+  unless is_empty
+    empty_beams.each {|beam| file['beam'].delete(beam) }
     RedisConnection.setex tmp_key, subject_time, file.to_json
     ObservationUploader.new.perform(tmp_key)
-
+  else
+    RedisConnection.del tmp_key
+  end
   push("telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
   
   return [201, "created succesfully"]
