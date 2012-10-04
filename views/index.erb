@@ -27,27 +27,28 @@
 	</head>
 	<body>
 		<h1>Telescope Status <%=@status%></h1>
-		<img src="http://top-people.starmedia.com/tmp/swotti/cacheZNJHBMSGEMFWCGE=UGVVCGXLLVBLB3BSZQ==/imgFrank%20Zappa3.jpg" style="position:absolute; top:10px; right:10px"
-		<p>Frank is currently observering tartget <%=@observation_id%> and has the following  <span id="	count"></span> keys: </p>
+		<!img src="http://top-people.starmedia.com/tmp/swotti/cacheZNJHBMSGEMFWCGE=UGVVCGXLLVBLB3BSZQ==/imgFrank%20Zappa3.jpg" style="position:absolute; top:10px; right:10px">
+		<img src="http://musicadefondo.files.wordpress.com/2009/09/cruising-with-ruben-and-the-jets4.jpg?w=380" style="position:absolute; top:10px; right:10px"
+		<p>Ruben is currently observing target <%=@observation_id%> and has the following  <span id="	count"></span> keys: </p>
 
 		<h2>Pending subjects</h2>
-		<ul id="keys" style="list-format='none'">
+		<ul id="keys" style="list-format">
 			<% @keys.each do |key| %>
-				<li> <%=key%> </li>
-			<%end%>
-		</ul>
-
-		<h2>Pending data</h2>
-		<ul id="keys" style="list-format='none'">
-			<% @data_keys.each do |key| %>
 				<li> <%=key%> </li>
 			<%end%>
 		</ul>
 
 		<h2>Recent subjects</h2>
 
-		<ul id="keys" style="list-format='none'">
+		<ul id="keys" style="list-format">
 			<% @recent_subjects.each do |key| %>
+				<li> <%=key%> </li>
+			<%end%>
+		</ul>
+
+		<h2>Pending data</h2>
+		<ul id="keys" style="list-format">
+			<% @data_keys.each do |key| %>
 				<li> <%=key%> </li>
 			<%end%>
 		</ul>
