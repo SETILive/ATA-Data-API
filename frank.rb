@@ -368,7 +368,7 @@ post '/subjects' do
   rescue => ex
     puts ex.message
     f = File.open('exc_subjects.msg','a')
-    f.write("#{ex.class}: #{ex.message}\n")
+    f.write("EXCEPTION: #{ex.class}: #{ex.message}\nBACKTRACE: #{ex.backtrace}\n\n")
     f.close
   end
 end
