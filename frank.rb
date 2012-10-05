@@ -294,76 +294,83 @@ post '/offilne_subjects' do
 end
 
 post '/subjects' do
-  #Start followup window timer on receipt of first subject
-  unless RedisConnection.get("subject_timer") 
-    RedisConnection.setex("subject_timer", subject_time, "")
-    RedisConnection.setex("time_to_newdata",newdata_time, "")
-    push('dev-telescope', "new_telescope_data", "")
-  end
-  RedisConnection.set "report_key" , params.to_json
-  puts "activity id ", params[:subject][:activity_id]
-  puts "observation id ", params[:subject][:observation_id]
-  puts "pol ", params[:subject][:pol]
-  puts "subchannel", params[:subject][:subchannel] 
-  unless params[:file] &&
-    (tmpfile = params[:file][:tempfile]) &&
-    (name = params[:file][:filename]) &&
-    (activity_id = params[:subject][:activity_id]) &&
-    (observation_id = params[:subject][:observation_id]) &&
-    (pol = params[:subject][:pol]) &&
-    (sub_channel = params[:subject][:subchannel] )
-  
+  begin
+    #Start followup window timer on receipt of first subject
+    unless RedisConnection.get("subject_timer") 
+      RedisConnection.setex("subject_timer", subject_time, "")
+      RedisConnection.setex("time_to_newdata",newdata_time, "")
+      push('dev-telescope', "new_telescope_data", "")
+    end
+    RedisConnection.set "report_key" , params.to_json
+    puts "activity id ", params[:subject][:activity_id]
+    puts "observation id ", params[:subject][:observation_id]
+    puts "pol ", params[:subject][:pol]
+    puts "subchannel", params[:subject][:subchannel] 
+    unless params[:file] &&
+      (tmpfile = params[:file][:tempfile]) &&
+      (name = params[:file][:filename]) &&
+      (activity_id = params[:subject][:activity_id]) &&
+      (observation_id = params[:subject][:observation_id]) &&
+      (pol = params[:subject][:pol]) &&
+      (sub_channel = params[:subject][:subchannel] )
 
-    RedisConnection.set("error_key", params.to_json)
-    File.open("uploadErrors.log", "a") {|f| f.puts "having trouble params are #{params}"}
 
-    @error = "No file selected"
-    return [406, "problem params are #{params}"]
-  end
-  
-  # Temporary identifier for temporary redis keys and image/data filenames. 
-  # Marv will create proper database entries and modify urls when subject 
-  # is served. 
-  uuid = UUID.new.generate
+      RedisConnection.set("error_key", params.to_json)
+      File.open("uploadErrors.log", "a") {|f| f.puts "having trouble params are #{params}"}
 
-  STDOUT.puts "Uploading file, original name #{name.inspect}"
-  file=''
- 
-  while blk = tmpfile.read(65536)
-     file << blk
-  end
+      @error = "No file selected"
+      return [406, "problem params are #{params}"]
+    end
+
+    # Temporary identifier for temporary redis keys and image/data filenames. 
+    # Marv will create proper database entries and modify urls when subject 
+    # is served. 
+    uuid = UUID.new.generate
+
+    STDOUT.puts "Uploading file, original name #{name.inspect}"
+    file=''
+
+    while blk = tmpfile.read(65536)
+      file << blk
+    end
   file = BSON.deserialize(file)
 
-  # RedisConnection.lpush 'log', {:type=>'subject_upload', :date=>Time.now, :data=> {:params => params, :file => file}}
- 
-  #key      = subject_key(observation_id, activity_id, pol, sub_channel )
-  tmp_key = uuid + "_" + tmp_key(
-    observation_id, activity_id, pol, sub_channel )
-  is_empty = true
-  empty_beams = []
-  file["beam"].each do |beam|
-    beam_no   = beam['beam']
-    data = beam.delete('data').to_a
-    if data.nil? or data.empty? or (data-[0]).empty?
-      puts "WARNING: Empty beam" 
-      empty_beams << beam
+    # RedisConnection.lpush 'log', {:type=>'subject_upload', :date=>Time.now, :data=> {:params => params, :file => file}}
+
+    #key      = subject_key(observation_id, activity_id, pol, sub_channel )
+    tmp_key = uuid + "_" + tmp_key(
+      observation_id, activity_id, pol, sub_channel )
+    is_empty = true
+    empty_beams = []
+    file["beam"].each do |beam|
+      beam_no   = beam['beam']
+      data = beam.delete('data').to_a
+      if data.nil? or data.empty? or (data-[0]).empty?
+        puts "WARNING: Empty beam" 
+        empty_beams << beam
+      else
+        is_empty = false
+        tmp_data_key = uuid + "_" + tmp_data_key(observation_id, activity_id, pol, sub_channel, beam_no )
+        RedisConnection.setex tmp_data_key, subject_time, data.to_json
+      end
+    end 
+  #  RedisConnection.setex key, subject_life+10, file.to_json
+    unless is_empty
+      empty_beams.each {|beam| file['beam'].delete(beam) }
+      RedisConnection.setex tmp_key, subject_time, file.to_json
+      ObservationUploader.new.perform(tmp_key)
     else
-      is_empty = false
-      tmp_data_key = uuid + "_" + tmp_data_key(observation_id, activity_id, pol, sub_channel, beam_no )
-      RedisConnection.setex tmp_data_key, subject_time, data.to_json
+      RedisConnection.del tmp_key
     end
-  end 
-#  RedisConnection.setex key, subject_life+10, file.to_json
-  unless is_empty
-    empty_beams.each {|beam| file['beam'].delete(beam) }
-    RedisConnection.setex tmp_key, subject_time, file.to_json
-    ObservationUploader.new.perform(tmp_key)
-  else
-    RedisConnection.del tmp_key
+    push("telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
+
+    return [201, "created succesfully"]
+  rescue => ex
+    puts ex.message
+    f = File.open('exc_subjects.msg','a')
+    f.write("#{ex.class}: #{ex.message}\n")
+    f.close
   end
-  push("telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
-  
-  return [201, "created succesfully"]
 end
 
 def tmp_key(observation_id, activity_id, pol,sub_channel)
