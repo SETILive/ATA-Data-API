@@ -67,7 +67,7 @@ class ObservationUploader
     keys.each do |key|
       @data = JSON.parse(RedisConnection.get(key))
       key_parse = key.split("_")
-      @file_root = "observation_" + key_parse[0] + "_" + key_parse.last
+      @file_root = "observation_" + key_parse[0] + "_tmp_" + key_parse.last
       @path_to_data = upload_file( "data/" + @file_root + ".jsonp", "observation(#{@data});" )
       @image_urls      = generate_images
       urls = [@image_urls[:image], @image_urls[:thumb], @path_to_data]
@@ -100,7 +100,7 @@ class ObservationUploader
       bucket = s3.buckets['zooniverse-seti-dev']
       object = bucket.objects[name]
       object.write( data, :acl=>:public_read )
-      object.public_url
+      object.public_url.to_s
     end
   end
 
