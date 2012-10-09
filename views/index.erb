@@ -6,7 +6,22 @@
 			colors = ["red",  "blue", "green"];
 			$(document).ready(function(){
 				getKeys();
+				get_recent();
 			});
+
+			function get_recent(){
+				$.getJSON('/recents', function(data){
+					window.console.log(data);
+					$('#recent-keys').html("");
+					var count = 0;
+					for (key in data){
+						count += 1;
+						var col = colors[Math.floor(data[key].ttl*3.0/90.0)] || "black";
+						$('#recent-keys').append($("<li> "+ key +" time left  "+data[key].ttl+" s </li>" ).css("color", col));
+					}
+				setTimeout(get_recent, 2500);
+				});
+			}
 
 			function getKeys(){
 				$.getJSON('/subjects', function(data){
@@ -19,7 +34,7 @@
 
 					}
 					$("#count").html(count);
-					setTimeout(getKeys, 1000);
+					setTimeout(getKeys, 2000);
 				});
 			}
 
@@ -40,7 +55,7 @@
 
 		<h2>Recent subjects</h2>
 
-		<ul id="keys" style="list-format">
+		<ul id="recent-keys" style="list-format">
 			<% @recent_subjects.each do |key| %>
 				<li> <%=key%> </li>
 			<%end%>
@@ -62,5 +77,10 @@
 		<p id='report'>
 			<%=@report%>
 		</p>
+
+		<h3>Random keys</h3>
+		<ul>
+			<li><%= @time_to_new_data %></li>
+		</ul>
 	</body>
 </html>

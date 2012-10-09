@@ -11,7 +11,7 @@ require 'bson'
 require 'sidekiq'
 require 'aws-sdk'
 require 'uuid'
-#require 'debugger' ; debugger
+# require 'debugger' ; debugger
 
 
 Pusher.app_id = '***REMOVED***'
@@ -156,6 +156,7 @@ get  '/' do
   @current_targets = RedisConnection.get("current_target")
   @errors = RedisConnection.get "error_key"
   @report = RedisConnection.get "report_key"
+  @time_to_new_data = RedisConnection.get "time_to_new_data"
   erb :index
 end
 
@@ -251,7 +252,6 @@ post '/followup/:activity_id' do |activity_id|
 end
 
 #Getting and setting status 
-
 get '/status' do
   return RedisConnection.get "current_status"
 end
@@ -262,8 +262,8 @@ post '/status/:status_update' do |status|
   # RedisConnection.lpush 'log', {:type=>'status_update', :date=>Time.now, :data=> {:status => status}}.to_json
 
   if allowed_states.include? status
-    push("telescope", "status_changed", status)
     RedisConnection.set "current_status", status
+    push("telescope", "status_changed", status)
     return 201
   else 
     return [406,"status type not recognised"]
@@ -271,7 +271,6 @@ post '/status/:status_update' do |status|
 end
 
 #Subjects
-
 get '/subjects/:activity_id' do |activity_id|
   subject = RedisConnection.get("*#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{obs}")
   if subject 
@@ -283,6 +282,10 @@ end
 
 get '/subjects' do
   RedisConnection.keys("*#{redis_key_prefix}*").inject({}){|r,k| r[k]={:ttl=>RedisConnection.ttl(k)}; r }.to_json
+end
+
+get '/recents' do
+  RedisConnection.keys("*#{redis_recent_prefix}*").inject({}){|r,k| r[k]={:ttl=>RedisConnection.ttl(k)}; r }.to_json
 end
 
 get '/key/:key' do |key|
@@ -299,7 +302,7 @@ post '/subjects' do
     unless RedisConnection.get("subject_timer") 
       RedisConnection.setex("subject_timer", subject_time, "")
       RedisConnection.setex("time_to_newdata",newdata_time, "")
-      push('dev-telescope', "new_telescope_data", "")
+      push('dev-telescope', "time_to_followup", RedisConnection.ttl("subject_timer"))
     end
     RedisConnection.set "report_key" , params.to_json
     puts "activity id ", params[:subject][:activity_id]
@@ -333,7 +336,7 @@ post '/subjects' do
     while blk = tmpfile.read(65536)
       file << blk
     end
-  file = BSON.deserialize(file)
+    file = BSON.deserialize(file)
 
     # RedisConnection.lpush 'log', {:type=>'subject_upload', :date=>Time.now, :data=> {:params => params, :file => file}}
 
@@ -354,7 +357,7 @@ post '/subjects' do
         RedisConnection.setex tmp_data_key, subject_time, data.to_json
       end
     end 
-  #  RedisConnection.setex key, subject_life+10, file.to_json
+    # RedisConnection.setex key, subject_life+10, file.to_json
     unless is_empty
       empty_beams.each {|beam| file['beam'].delete(beam) }
       RedisConnection.setex tmp_key, subject_time, file.to_json
@@ -362,7 +365,7 @@ post '/subjects' do
     else
       RedisConnection.del tmp_key
     end
-    push("telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
+    push("dev-telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
 
     return [201, "created succesfully"]
   rescue => ex
