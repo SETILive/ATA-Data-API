@@ -34,7 +34,7 @@ RedisConnection =Redis.new( redis_config  )
 require 'chunky_png'
 
 subject_time = 160
-newdata_time = 180
+newdata_time = 210
 
 if Sinatra::Base.development?
   # Configure for 
@@ -263,7 +263,7 @@ post '/status/:status_update' do |status|
 
   if allowed_states.include? status
     RedisConnection.set "current_status", status
-    push("telescope", "status_changed", status)
+    push("dev-telescope", "status_changed", status)
     return 201
   else 
     return [406,"status type not recognised"]
@@ -301,7 +301,7 @@ post '/subjects' do
     #Start followup window timer on receipt of first subject
     unless RedisConnection.get("subject_timer") 
       RedisConnection.setex("subject_timer", subject_time, "")
-      RedisConnection.setex("time_to_newdata",newdata_time, "")
+      RedisConnection.setex("time_to_new_data",newdata_time, "")
       push('dev-telescope', "time_to_followup", RedisConnection.ttl("subject_timer"))
     end
     RedisConnection.set "report_key" , params.to_json
