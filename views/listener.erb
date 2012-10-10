@@ -9,8 +9,8 @@
     <%chan_prefix = Sinatra::Base.development? ? 'dmode-' : ''%>
       $(document).ready(function(){
         var pusher = new Pusher("***REMOVED***");
-        var telescopeChannel = pusher.subscribe(<%=chan_prefix + 'telescope'%>);
-        var subjectChannel = pusher.subscribe(<%=chan_prefix + 'subjects' %>);
+        var telescopeChannel = pusher.subscribe(<%=chan_prefix + 'dev-telescope'%>);
+        var subjectChannel = pusher.subscribe(<%=chan_prefix + 'dev-subjects' %>);
         
         subjectChannel.bind("follow_up_triggered", function(data){
           $("#telescopeEvents").append("<li>"+data+"</li>");

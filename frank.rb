@@ -206,7 +206,7 @@ get '/targets/:id' do |target_id|
 end
 
 get '/testPush' do
-  push('telescope', 'status_test', '')
+  push('dev-telescope', 'status_test', '')
   return [200, 'ok']
 end
 
@@ -235,7 +235,7 @@ post '/current_target/:target_id' do |target_id|
   unless RedisConnection.get("current_target_#{beamNo}") == target_id
     # RedisConnection.lpush 'log', {:type=>'current_target_post', :date=>Time.now, :data=> params}.to_json
     RedisConnection.set "current_target_#{beamNo}", target_id 
-    push('telescope', 'target_changed' , params.to_json)
+    push('dev-telescope', 'target_changed' , params.to_json)
   end
 
 end
@@ -248,7 +248,7 @@ get '/followup' do
 end
 
 post '/followup/:activity_id' do |activity_id|
-  push('subjects', 'follow_up_triggered', activity_id )
+  push('dev-subjects', 'follow_up_triggered', activity_id )
 end
 
 #Getting and setting status 
