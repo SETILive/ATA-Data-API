@@ -28,13 +28,34 @@ redis_config = redis_config[mode_str].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 puts redis_config
 
 RedisConnection =Redis.new( redis_config  )
+if Sinatra::Base.development?
+  Sidekiq.configure_server do |config|
+    config.redis = { :url => "redis://#{redis_config[:host]}:#{redis_config[:port]}/", 
+      :namespace => 'setiliveworkers', :poll_interval => 5 }
+  end
 
+  Sidekiq.configure_client do |config|
+    config.redis = {  :url => "redis://#{redis_config[:host]}:#{redis_config[:port]}/", :namespace => 'setiliveworkers' , :size => 1 }
+  end
+
+else # Sinatra::Base.production?
+  
+  Sidekiq.configure_server do |config|
+    config.redis = { :url =>  "redis://#{redis_config['username']}:#{redis_config[:password]}@#{redis_config[:host]}:#{redis_config[:port]}/", 
+      :namespace => 'setiliveworkers', :poll_interval => 5 }
+  end
+
+  Sidekiq.configure_client do |config|
+    config.redis = {  :url =>  "redis://#{redis_config['username']}:#{redis_config[:password]}@#{redis_config[:host]}:#{redis_config[:port]}/", :namespace => 'setiliveworkers', :size => 1 }
+  end
+
+end
 # config = JSON.parse(IO.read("config.json"))
 
 require 'chunky_png'
 
-subject_time = 160
-newdata_time = 210
+min_subject_time = 160
+min_newdata_time = 210
 
 if Sinatra::Base.development?
   # Configure for 
@@ -48,12 +69,45 @@ else
   AWS.config :access_key_id=>'***REMOVED***', :secret_access_key => '***REMOVED***'
 end
 
+class PurgeTempFiles
+  #include Sidekiq::Worker
+  
+    def perform
+      puts 'purge task'
+      if Sinatra::Base.development?
+        bucket_home = ENV['HOME'] + '/' + 's3store'
+        bucket_name = 'zooniverse-seti-dev' 
+        ['data/', 'images/', 'thumbs/'].each do |dir|
+          purge = Dir.glob( bucket_home + '/' + bucket_name + '/' + dir + 'tmp_*')
+          purge.each { |file| File.delete( file ) }
+        end
+      else
+        s3 = AWS::S3.new
+        bucket = s3.buckets['zooniverse-seti-dev']
+        ['data/', 'images/', 'thumbs/'].each do |dir|
+          purge = bucket.objects.with_prefix( dir + 'tmp_observation_' )
+          purge.each { |file| file.delete() }
+        end
+      end
+
+    end
+end
+
+class NextDataTime
+  include Sidekiq::Worker
+  
+  def perform
+    puts 'pushing time to next data ' + RedisConnection.ttl('time_to_new_data').to_s
+    push('dev-telescope', 'time_to_new_data', RedisConnection.ttl('time_to_new_data'))
+  end
+end
+
 # Uploads a subject's data/images to S3 using temporary urls and puts the urls
 # into redis for Marv to retrieve and construct the Subject and Observation
 # object.
 # Replaces data in observation key with data and image urls in json format.
 class ObservationUploader
-  include Sidekiq::Worker 
+  #include Sidekiq::Worker 
 
   @data = nil
   @subject = nil
@@ -67,7 +121,7 @@ class ObservationUploader
     keys.each do |key|
       @data = JSON.parse(RedisConnection.get(key))
       key_parse = key.split("_")
-      @file_root = "observation_" + key_parse[0] + "_tmp_" + key_parse.last
+      @file_root = "tmp_observation_" + key_parse[0] + "_" + key_parse.last
       @path_to_data = upload_file( "data/" + @file_root + ".jsonp", "observation(#{@data});" )
       @image_urls      = generate_images
       urls = [@image_urls[:image], @image_urls[:thumb], @path_to_data]
@@ -300,9 +354,11 @@ post '/subjects' do
   begin
     #Start followup window timer on receipt of first subject
     unless RedisConnection.get("subject_timer") 
-      RedisConnection.setex("subject_timer", subject_time, "")
-      RedisConnection.setex("time_to_new_data",newdata_time, "")
+      RedisConnection.setex("subject_timer", min_subject_time, "")
+      RedisConnection.setex("time_to_new_data",min_newdata_time, "")
+      PurgeTempFiles.new.perform()
       push('dev-telescope', "time_to_followup", RedisConnection.ttl("subject_timer"))
+      NextDataTime.perform_in( RedisConnection.ttl("subject_timer").to_i )
     end
     RedisConnection.set "report_key" , params.to_json
     puts "activity id ", params[:subject][:activity_id]
@@ -354,13 +410,13 @@ post '/subjects' do
       else
         is_empty = false
         tmp_data_key = uuid + "_" + tmp_data_key(observation_id, activity_id, pol, sub_channel, beam_no )
-        RedisConnection.setex tmp_data_key, subject_time, data.to_json
+        RedisConnection.setex tmp_data_key, min_subject_time, data.to_json
       end
     end 
     # RedisConnection.setex key, subject_life+10, file.to_json
     unless is_empty
       empty_beams.each {|beam| file['beam'].delete(beam) }
-      RedisConnection.setex tmp_key, subject_time, file.to_json
+      RedisConnection.setex tmp_key, min_subject_time, file.to_json
       ObservationUploader.new.perform(tmp_key)
     else
       RedisConnection.del tmp_key
