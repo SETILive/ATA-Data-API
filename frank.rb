@@ -52,7 +52,7 @@ else # Sinatra::Base.production?
 end
 # config = JSON.parse(IO.read("config.json"))
 
-require 'chunky_png'
+require 'oily_png' #'chunky_png'
 
 min_subject_time = 160
 min_newdata_time = 210

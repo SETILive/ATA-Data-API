@@ -8,6 +8,7 @@ gem 'uuid'
 gem 'bson', '1.5.2'
 gem 'sidekiq', '2.0.0'
 gem 'chunky_png'
+gem 'oily_png'
 
 group :development do
   #gem 'debugger'
