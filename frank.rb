@@ -352,11 +352,14 @@ end
 
 post '/subjects' do
   begin
+    log_entry( "\n/subjects")
     #Start followup window timer on receipt of first subject
     unless RedisConnection.get("subject_timer") 
       RedisConnection.setex("subject_timer", min_subject_time, "")
       RedisConnection.setex("time_to_new_data",min_newdata_time, "")
+      log_entry( "PurgeTempFiles called" )
       PurgeTempFiles.new.perform()
+      log_entry( "Messages, timers: ")
       push('dev-telescope', "time_to_followup", RedisConnection.ttl("subject_timer"))
       NextDataTime.perform_in( RedisConnection.ttl("subject_timer").to_i )
     end
@@ -399,6 +402,7 @@ post '/subjects' do
     #key      = subject_key(observation_id, activity_id, pol, sub_channel )
     tmp_key = uuid + "_" + tmp_key(
       observation_id, activity_id, pol, sub_channel )
+    log_entry( "Beam check:" )
     is_empty = true
     empty_beams = []
     file["beam"].each do |beam|
@@ -418,11 +422,12 @@ post '/subjects' do
       empty_beams.each {|beam| file['beam'].delete(beam) }
       RedisConnection.setex tmp_key, min_subject_time, file.to_json
       ObservationUploader.new.perform(tmp_key)
+      log_entry( "Beam upload done" )
     else
       RedisConnection.del tmp_key
     end
     push("dev-telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
-
+    log_entry( "/subject done")
     return [201, "created succesfully"]
   rescue => ex
     puts ex.message
@@ -451,3 +456,10 @@ def push(chanel, message, data)
     puts "could not push update #{chan} #{message} #{data}"
   end
 end
+
+def log_entry( entry )
+    puts entry
+    f = File.open('log_entry.log','a')
+    f.write( entry + ": " + Time.now.utc.to_s + "\n" )
+    f.close
+end  
