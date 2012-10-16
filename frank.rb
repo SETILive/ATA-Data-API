@@ -54,8 +54,8 @@ end
 
 require 'oily_png' #'chunky_png'
 
-min_subject_time = 160
-min_newdata_time = 210
+min_subject_time = 200
+min_newdata_time = 260
 
 if Sinatra::Base.development?
   # Configure for 
@@ -122,8 +122,10 @@ class ObservationUploader
       @data = JSON.parse(RedisConnection.get(key))
       key_parse = key.split("_")
       @file_root = "tmp_observation_" + key_parse[0] + "_" + key_parse.last
+      log_entry("uploading data")
       @path_to_data = upload_file( "data/" + @file_root + ".jsonp", "observation(#{@data});" )
       @image_urls      = generate_images
+      log_entry("uploading images")
       urls = [@image_urls[:image], @image_urls[:thumb], @path_to_data]
       new_data_key = key.sub( "_tmp_", "_subject_")
       RedisConnection.del( key )
