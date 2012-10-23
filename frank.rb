@@ -54,8 +54,8 @@ end
 
 require 'oily_png' #'chunky_png'
 
-min_subject_time = 200
-min_newdata_time = 260
+min_subject_time = 160
+min_newdata_time = 240
 
 if Sinatra::Base.development?
   # Configure for 
@@ -312,6 +312,25 @@ get '/status' do
   return RedisConnection.get "current_status"
 end
 
+post '/followup_time/:time_to_followup' do |followup_time|
+  if RedisConnection.ttl("subject_timer") > 10
+    RedisConnection.expire("subject_timer", followup_time.to_i)
+    RedisConnection.keys("*_subject_*").each do |key|
+      RedisConnection.expire(key, RedisConnection.ttl("subject_timer") )
+    end
+    push('dev-telescope', "time_to_followup_update", 
+      RedisConnection.ttl("subject_timer"))
+    return 201 
+  else
+    return [424, "followup time expired"]
+  end      
+end
+
+post '/next_data_time/:time_to_next_data' do |next_data_time|
+  RedisConnection.setex("time_to_new_data", next_data_time.to_i, "")
+  return 201 
+end
+
 post '/status/:status_update' do |status|
   allowed_states = ["active", "inactive", "replay"]
 
@@ -355,16 +374,6 @@ end
 post '/subjects' do
   begin
     log_entry( "\n/subjects")
-    #Start followup window timer on receipt of first subject
-    unless RedisConnection.get("subject_timer") 
-      RedisConnection.setex("subject_timer", min_subject_time, "")
-      RedisConnection.setex("time_to_new_data",min_newdata_time, "")
-      log_entry( "PurgeTempFiles called" )
-      PurgeTempFiles.new.perform()
-      log_entry( "Messages, timers: ")
-      push('dev-telescope', "time_to_followup", RedisConnection.ttl("subject_timer"))
-      NextDataTime.perform_in( RedisConnection.ttl("subject_timer").to_i )
-    end
     RedisConnection.set "report_key" , params.to_json
     puts "activity id ", params[:subject][:activity_id]
     puts "observation id ", params[:subject][:observation_id]
@@ -386,6 +395,22 @@ post '/subjects' do
       return [406, "problem params are #{params}"]
     end
 
+    # See if the Renderer is sending a rendering version number, set to version
+    # 1 if not.
+    rendering = params[:subject][:rendering]
+    rendering = "1" unless rendering 
+    
+    #Start followup window timer on receipt of first subject
+    unless RedisConnection.get("subject_timer") 
+      RedisConnection.setex("subject_timer", min_subject_time, "")
+      #RedisConnection.setex("time_to_new_data",min_newdata_time, "")
+      log_entry( "PurgeTempFiles called" )
+      PurgeTempFiles.new.perform()
+      log_entry( "Messages, timers: ")
+      push('dev-telescope', "time_to_followup", RedisConnection.ttl("subject_timer"))
+      #NextDataTime.perform_in( RedisConnection.ttl("subject_timer").to_i )
+    end
+    
     # Temporary identifier for temporary redis keys and image/data filenames. 
     # Marv will create proper database entries and modify urls when subject 
     # is served. 
@@ -403,7 +428,7 @@ post '/subjects' do
 
     #key      = subject_key(observation_id, activity_id, pol, sub_channel )
     tmp_key = uuid + "_" + tmp_key(
-      observation_id, activity_id, pol, sub_channel )
+      observation_id, activity_id, pol, sub_channel, rendering )
     log_entry( "Beam check:" )
     is_empty = true
     empty_beams = []
@@ -415,7 +440,8 @@ post '/subjects' do
         empty_beams << beam
       else
         is_empty = false
-        tmp_data_key = uuid + "_" + tmp_data_key(observation_id, activity_id, pol, sub_channel, beam_no )
+        tmp_data_key = uuid + "_" + tmp_data_key(observation_id, 
+          activity_id, pol, sub_channel, rendering, beam_no )
         RedisConnection.setex tmp_data_key, min_subject_time, data.to_json
       end
     end 
@@ -439,14 +465,14 @@ post '/subjects' do
   end
 end
 
-def tmp_key(observation_id, activity_id, pol,sub_channel)
+def tmp_key(observation_id, activity_id, pol,sub_channel, rendering)
   redis_key_prefix= "tmp_new"
-  "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}_#{sub_channel}"
+  "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}_#{sub_channel}_#{rendering}"
 end
 
-def tmp_data_key(observation_id, activity_id, pol,sub_channel,beam_no)
+def tmp_data_key(observation_id, activity_id, pol,sub_channel,beam_no, rendering)
   redis_key_prefix= "tmp_data_new"
-  "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}_#{sub_channel}_#{beam_no}"
+  "#{redis_key_prefix}_#{observation_id}_#{activity_id}_#{pol}_#{sub_channel}_#{beam_no}_#{rendering}"
 end
 
 def push(chanel, message, data)  
