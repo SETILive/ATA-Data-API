@@ -270,9 +270,13 @@ get '/current_target' do
   current_target_id = RedisConnection.get "current_target"
   return [404, "current target not set"] unless current_target_id 
   target_info = RedisConnection.get target_key(current_target_id)
-  return [404, "current target #{current_target_id} set but no data in system for it"]
   
-  return {:target_id=> current_target_id, :target_info=>target_info}.to_json
+  if target_info
+    return {:target_id=> current_target_id, :target_info=>target_info}.to_json
+  else
+    return [404, "current target #{current_target_id} set but no data in system for it"] unless target_info
+  end
+  
 end
 
 post '/current_target/:target_id' do |target_id| 
