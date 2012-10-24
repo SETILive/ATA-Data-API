@@ -331,6 +331,23 @@ post '/next_data_time/:time_to_next_data' do |next_data_time|
   return 201 
 end
 
+post '/operator_message' do
+  
+  # <time_string_in_seconds>_MSG_<:message> posted to Redis and Pusher.
+  # Time string can be converted to local time with
+  # Time.at(time_string_in_seconds.to_i).ctime
+  # Message will be truncated to 140 characters.
+  
+  return [ 406, "bad parameters" ] unless params[:password] == "hjiqvhkzxrlc"
+  
+  return [ 406, "bad parameters" ] unless params[:message] != ""
+  
+  op_data = Time.now.to_i.to_s + "_MSG_" + params[:message][0..141]
+  RedisConnection.set( "last_operator_msg", op_data )
+  push( 'telescope', 'operator_message', op_data )
+  return 201
+end
+
 post '/status/:status_update' do |status|
   allowed_states = ["active", "inactive", "replay"]
 
