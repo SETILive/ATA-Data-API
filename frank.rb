@@ -339,10 +339,11 @@ post '/operator_message' do
   # Message will be truncated to 140 characters.
   
   return [ 406, "bad parameters" ] unless params[:password] == "hjiqvhkzxrlc"
-  
-  return [ 406, "bad parameters" ] unless params[:message] != ""
-  
-  op_data = Time.now.to_i.to_s + "_MSG_" + params[:message][0..141]
+
+  message = params[:message] == "" ? 
+    "The telescope is operating normally." :
+    params[:message][0..141]
+  op_data = Time.now.to_i.to_s + "_MSG_" + message
   RedisConnection.set( "last_operator_msg", op_data )
   push( 'telescope', 'operator_message', op_data )
   return 201
