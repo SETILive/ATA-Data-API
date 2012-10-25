@@ -290,11 +290,13 @@ post '/current_target/:target_id' do |target_id|
   end
 
   beamNo = params['target']['beam_no']
-
+    
 
   unless RedisConnection.get("current_target_#{beamNo}") == target_id
     # RedisConnection.lpush 'log', {:type=>'current_target_post', :date=>Time.now, :data=> params}.to_json
     RedisConnection.set "current_target_#{beamNo}", target_id 
+    key = "target_#{target_id}"
+    params['target']['name'] = JSON.parse(RedisConnection.get(key))["target_name"]
     push('dev-telescope', 'target_changed' , params.to_json)
   end
 
