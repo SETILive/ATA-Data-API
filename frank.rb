@@ -122,10 +122,10 @@ class ObservationUploader
       @data = JSON.parse(RedisConnection.get(key))
       key_parse = key.split("_")
       @file_root = "tmp_observation_" + key_parse[0] + "_" + key_parse.last
-      log_entry("uploading data")
+      #log_entry("uploading data")
       @path_to_data = upload_file( "data/" + @file_root + ".jsonp", "observation(#{@data});" )
       @image_urls      = generate_images
-      log_entry("uploading images")
+      #log_entry("uploading images")
       urls = [@image_urls[:image], @image_urls[:thumb], @path_to_data]
       new_data_key = key.sub( "_tmp_", "_subject_")
       RedisConnection.del( key )
@@ -161,10 +161,9 @@ class ObservationUploader
   end
 
   def generate_images
-    # This is a departure from SETILive 1.0. Main waterfall image is pixel-for-pixel
-    # Thumbnail image is scaled down by a factor of three with boxcar smoothing
-    # and will be directly used for observation images under the main waterfall
-    # in order to avoid dependence on unspecified browser image scaling routines.
+    # Since data is provided in time sequence and image coordinates have
+    # origin at top-left, images must be filled in reverse row order.
+    # This is imaging version 2
     
     img_width  = 768 #758
     img_height = 384 #410
@@ -193,7 +192,7 @@ class ObservationUploader
         val = 0 if val < 0
         row[idx] = ChunkyPNG::Color.grayscale(val)
       end
-      png.replace_row!(ypos,row)
+      png.replace_row!(height - 1 - ypos, row)
     end
     png.resample_nearest_neighbor!(img_width,img_height)
   end
@@ -397,7 +396,7 @@ end
 
 post '/subjects' do
   begin
-    log_entry( "\n/subjects")
+    #log_entry( "\n/subjects")
     RedisConnection.set "report_key" , params.to_json
     puts "activity id ", params[:subject][:activity_id]
     puts "observation id ", params[:subject][:observation_id]
@@ -428,9 +427,9 @@ post '/subjects' do
     unless RedisConnection.get("subject_timer") 
       RedisConnection.setex("subject_timer", min_subject_time, "")
       #RedisConnection.setex("time_to_new_data",min_newdata_time, "")
-      log_entry( "PurgeTempFiles called" )
+      #log_entry( "PurgeTempFiles called" )
       PurgeTempFiles.new.perform()
-      log_entry( "Messages, timers: ")
+      #log_entry( "Messages, timers: ")
       push('dev-telescope', "time_to_followup", RedisConnection.ttl("subject_timer"))
       #NextDataTime.perform_in( RedisConnection.ttl("subject_timer").to_i )
     end
@@ -453,7 +452,7 @@ post '/subjects' do
     #key      = subject_key(observation_id, activity_id, pol, sub_channel )
     tmp_key = uuid + "_" + tmp_key(
       observation_id, activity_id, pol, sub_channel, rendering )
-    log_entry( "Beam check:" )
+    #log_entry( "Beam check:" )
     is_empty = true
     empty_beams = []
     file["beam"].each do |beam|
@@ -465,7 +464,7 @@ post '/subjects' do
       else
         is_empty = false
         tmp_data_key = uuid + "_" + tmp_data_key(observation_id, 
-          activity_id, pol, sub_channel, rendering, beam_no )
+          activity_id, beam['polarization'], sub_channel, rendering, beam_no )
         RedisConnection.setex tmp_data_key, min_subject_time, data.to_json
       end
     end 
@@ -474,12 +473,12 @@ post '/subjects' do
       empty_beams.each {|beam| file['beam'].delete(beam) }
       RedisConnection.setex tmp_key, min_subject_time, file.to_json
       ObservationUploader.new.perform(tmp_key)
-      log_entry( "Beam upload done" )
+      #log_entry( "Beam upload done" )
     else
       RedisConnection.del tmp_key
     end
     push("dev-telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
-    log_entry( "/subject done")
+    #log_entry( "/subject done")
     return [201, "created succesfully"]
   rescue => ex
     puts ex.message
