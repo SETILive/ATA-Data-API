@@ -76,14 +76,14 @@ class PurgeTempFiles
       puts 'purge task'
       if Sinatra::Base.development?
         bucket_home = ENV['HOME'] + '/' + 's3store'
-        bucket_name = 'zooniverse-seti-dev' 
+        bucket_name = 'zooniverse-seti' 
         ['data/', 'images/', 'thumbs/'].each do |dir|
           purge = Dir.glob( bucket_home + '/' + bucket_name + '/' + dir + 'tmp_*')
           purge.each { |file| File.delete( file ) }
         end
       else
         s3 = AWS::S3.new
-        bucket = s3.buckets['zooniverse-seti-dev']
+        bucket = s3.buckets['zooniverse-seti']
         ['data/', 'images/', 'thumbs/'].each do |dir|
           purge = bucket.objects.with_prefix( dir + 'tmp_observation_' )
           purge.each { |file| file.delete() }
@@ -98,7 +98,7 @@ class NextDataTime
   
   def perform
     puts 'pushing time to next data ' + RedisConnection.ttl('time_to_new_data').to_s
-    push('dev-telescope', 'time_to_new_data', RedisConnection.ttl('time_to_new_data'))
+    push('telescope', 'time_to_new_data', RedisConnection.ttl('time_to_new_data'))
   end
 end
 
@@ -145,7 +145,7 @@ class ObservationUploader
       # Run local HTTP file server in s3store on port 9914
       # (i.e. python -m SimpleHTTPServer 9914) 
       bucket_home = ENV['HOME'] + '/' + 's3store'
-      bucket_name = 'zooniverse-seti-dev'
+      bucket_name = 'zooniverse-seti'
       file_path = bucket_home + '/' + bucket_name + '/' + name
       object_file = File.open( file_path, 'w' )
       object_file.write( data )
@@ -153,7 +153,7 @@ class ObservationUploader
       'http://localhost:9914/' + bucket_name + "/" + name
     else
       s3 = AWS::S3.new
-      bucket = s3.buckets['zooniverse-seti-dev']
+      bucket = s3.buckets['zooniverse-seti']
       object = bucket.objects[name]
       object.write( data, :acl=>:public_read )
       object.public_url.to_s
@@ -261,7 +261,7 @@ get '/targets/:id' do |target_id|
 end
 
 get '/testPush' do
-  push('dev-telescope', 'status_test', '')
+  push('telescope', 'status_test', '')
   return [200, 'ok']
 end
 
@@ -296,7 +296,7 @@ post '/current_target/:target_id' do |target_id|
     RedisConnection.set "current_target_#{beamNo}", target_id 
     key = "target_#{target_id}"
     params['target']['name'] = JSON.parse(RedisConnection.get(key))["target_name"]
-    push('dev-telescope', 'target_changed' , params.to_json)
+    push('telescope', 'target_changed' , params.to_json)
   end
 
 end
@@ -309,7 +309,7 @@ get '/followup' do
 end
 
 post '/followup/:activity_id' do |activity_id|
-  push('dev-subjects', 'follow_up_triggered', activity_id )
+  push('subjects', 'follow_up_triggered', activity_id )
 end
 
 #Getting and setting status 
@@ -323,7 +323,7 @@ post '/followup_time/:time_to_followup' do |followup_time|
     RedisConnection.keys("*_subject_*").each do |key|
       RedisConnection.expire(key, RedisConnection.ttl("subject_timer") )
     end
-    push('dev-telescope', "time_to_followup_update", 
+    push('telescope', "time_to_followup_update", 
       RedisConnection.ttl("subject_timer"))
     return 201 
   else
@@ -361,7 +361,7 @@ post '/status/:status_update' do |status|
 
   if allowed_states.include? status
     RedisConnection.set "current_status", status
-    push("dev-telescope", "status_changed", status)
+    push("telescope", "status_changed", status)
     return 201
   else 
     return [406,"status type not recognised"]
@@ -430,7 +430,7 @@ post '/subjects' do
       #log_entry( "PurgeTempFiles called" )
       PurgeTempFiles.new.perform()
       #log_entry( "Messages, timers: ")
-      push('dev-telescope', "time_to_followup", RedisConnection.ttl("subject_timer"))
+      push('telescope', "time_to_followup", RedisConnection.ttl("subject_timer"))
       #NextDataTime.perform_in( RedisConnection.ttl("subject_timer").to_i )
     end
     
@@ -477,7 +477,7 @@ post '/subjects' do
     else
       RedisConnection.del tmp_key
     end
-    push("dev-telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
+    push("telescope","new_data", {:url => '/subjects/', :observation_id => observation_id, :activity_id=> activity_id, :polarization=> pol}.to_json)
     #log_entry( "/subject done")
     return [201, "created succesfully"]
   rescue => ex

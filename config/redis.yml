@@ -9,10 +9,10 @@ test:
   thread_safe: true
   port: 6379
   db: 1
+
   
 production:
-  host: 127.0.0.1
+  host: ***REMOVED***
   thread_safe: true
-  port: 6379
   password: ***REMOVED***
-  
+  port: 6381
