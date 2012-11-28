@@ -53,8 +53,12 @@ end
 
 require 'oily_png' #'chunky_png'
 
-min_subject_time = 160
-min_newdata_time = 240
+# Initialize subject timer value if not defined.
+min_subject_time_str = RedisConnection.get( 'min_subject_time' )
+unless min_subject_time_str
+  min_subject_time_str = "155"
+  RedisConnection.set( 'min_subject_time', min_subject_time_str )
+end
 
 if Sinatra::Base.development?
   # Configure for 
@@ -423,7 +427,8 @@ post '/subjects' do
     rendering = "1" unless rendering 
     
     #Start followup window timer on receipt of first subject
-    unless RedisConnection.get("subject_timer") 
+    min_subject_time = RedisConnection.get("min_subject_time").to_i
+    unless RedisConnection.get("subject_timer")
       RedisConnection.setex("subject_timer", min_subject_time, "")
       #RedisConnection.setex("time_to_new_data",min_newdata_time, "")
       #log_entry( "PurgeTempFiles called" )
