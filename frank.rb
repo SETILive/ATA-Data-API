@@ -13,6 +13,9 @@ require 'aws-sdk'
 require 'uuid'
 # require 'debugger' ; debugger
 
+# Passwords for better-than-nothing security
+operator_passwd = "iuojwtmwmdct"
+renderer_passwd = "hjiqvhkzxrlc"
 
 Pusher.app_id = '***REMOVED***'
 Pusher.key = '***REMOVED***'
@@ -334,9 +337,33 @@ post '/followup_time/:time_to_followup' do |followup_time|
   end      
 end
 
-post '/next_data_time/:time_to_next_data' do |next_data_time|
-  RedisConnection.setex("time_to_new_data", next_data_time.to_i, "")
-  return 201 
+# Next or current schedule start, end times
+
+post '/telescope_schedule_info' do
+  return [ 406, "bad parameters" ] unless params[:password] == renderer_passwd
+  is_current_str = params[:current]
+  start_str = params[:starttime]
+  end_str = params[:endtime]
+  if start_str && end_str && is_current_str 
+    t_start = start_str.to_i
+    t_end = end_str.to_i 
+    is_current = is_current_str == 'true'
+    t_start += 75 * 60000 if t_start > 0 # Estimated actual start
+    if is_current
+      t_change = RedisConnection.get("current_status") == 'active' ? t_end : t_start
+    else
+      t_change = t_start      
+    end
+    delta = (RedisConnection.get("next_status_change").to_f - t_change).to_f.abs
+    
+    # Look for a change greater than 1 second and update
+    if delta > 60000.0
+      push("telescope", "next_status_changed", t_change.to_s)
+      RedisConnection.set "next_status_change", t_change.to_s      
+    end
+  else
+    return [406, "bad parameters"]
+  end  
 end
 
 post '/operator_message' do
@@ -346,7 +373,7 @@ post '/operator_message' do
   # Time.at(time_string_in_seconds.to_i).ctime
   # Message will be truncated to 51 characters.
   
-  return [ 406, "bad parameters" ] unless params[:password] == "hjiqvhkzxrlc"
+  return [ 406, "bad parameters" ] unless params[:password] == operator_passwd
 
   message = params[:message] == "" ? 
     "The telescope is operating normally." :
