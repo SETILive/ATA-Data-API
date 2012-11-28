@@ -50,7 +50,6 @@ else # Sinatra::Base.production?
   end
 
 end
-# config = JSON.parse(IO.read("config.json"))
 
 require 'oily_png' #'chunky_png'
 
@@ -341,13 +340,13 @@ post '/operator_message' do
   # <time_string_in_seconds>_MSG_<:message> posted to Redis and Pusher.
   # Time string can be converted to local time with
   # Time.at(time_string_in_seconds.to_i).ctime
-  # Message will be truncated to 140 characters.
+  # Message will be truncated to 51 characters.
   
   return [ 406, "bad parameters" ] unless params[:password] == "hjiqvhkzxrlc"
 
   message = params[:message] == "" ? 
     "The telescope is operating normally." :
-    params[:message][0..141]
+    params[:message][0..50]
   op_data = Time.now.to_i.to_s + "_MSG_" + message
   RedisConnection.set( "last_operator_msg", op_data )
   push( 'telescope', 'operator_message', op_data )
@@ -468,12 +467,11 @@ post '/subjects' do
         RedisConnection.setex tmp_data_key, min_subject_time, data.to_json
       end
     end 
-    # RedisConnection.setex key, subject_life+10, file.to_json
+
     unless is_empty
       empty_beams.each {|beam| file['beam'].delete(beam) }
       RedisConnection.setex tmp_key, min_subject_time, file.to_json
       ObservationUploader.new.perform(tmp_key)
-      #log_entry( "Beam upload done" )
     else
       RedisConnection.del tmp_key
     end
