@@ -40,11 +40,14 @@ end
 
 require 'oily_png' #'chunky_png'
 
-# Initialize subject timer value if not defined.
-min_subject_time_str = RedisConnection.get( 'min_subject_time' )
-unless min_subject_time_str
-  min_subject_time_str = "155"
-  RedisConnection.set( 'min_subject_time', min_subject_time_str )
+# Set frank parameters to defaults if not defined in Redis
+unless RedisConnection.get( 'frank_parms' )
+  RedisConnection.set( 'frank_parms', 
+    { t_accum: 93, # Waterfall data collection time
+	    followup_deadline_time: 267, # Subject start time to followup request at SonATA
+	    data_key_buffer: 30, # Observation data life extension to avoid races.
+	    followup_lead_time: 15 # Lead time classification to followup request at SonATA
+	  }.to_json )
 end
 
 if Sinatra::Base.development?
@@ -107,9 +110,9 @@ class ObservationUploader
       #log_entry("uploading images")
       urls = [@image_urls[:image], @image_urls[:thumb], @path_to_data]
       new_data_key = key.sub( "_tmp_", "_subject_")
+      RedisConnection.setex(new_data_key, RedisConnection.ttl(key), urls.to_json )
       RedisConnection.del( key )
-      RedisConnection.setex(new_data_key, RedisConnection.ttl("subject_timer") + 20, 
-        urls.to_json )
+
     end
     new_subj_key = subj_key.sub( "_tmp_", "_subject_" )
     RedisConnection.rename( subj_key, new_subj_key )
@@ -412,6 +415,7 @@ end
 post '/subjects' do
   begin
     #log_entry( "\n/subjects")
+    parms = JSON.parse( RedisConnection.get('frank_parms') )
     RedisConnection.set "report_key" , params.to_json
     puts "activity id ", params[:subject][:activity_id]
     puts "observation id ", params[:subject][:observation_id]
@@ -437,14 +441,9 @@ post '/subjects' do
     # 1 if not.
     rendering = params[:subject][:rendering]
     rendering = "1" unless rendering 
-    
-    #Start followup window timer on receipt of first subject
-    min_subject_time = RedisConnection.get("min_subject_time").to_i
-    unless RedisConnection.get("subject_timer")
-      RedisConnection.setex("subject_timer", min_subject_time, "")
-      PurgeTempFiles.new.perform()
-      push('telescope', "time_to_followup", RedisConnection.ttl("subject_timer"))
-    end
+       
+    # Purge old files on first new activity data received
+    PurgeTempFiles.new.perform() unless RedisConnection.get("subject_timer")
     
     # Temporary identifier for temporary redis keys and image/data filenames. 
     # Marv will create proper database entries and modify urls when subject 
@@ -458,6 +457,19 @@ post '/subjects' do
       file << blk
     end
     file = BSON.deserialize(file)
+    
+    # Set subject timer for followup deadline if first activity data
+    unless RedisConnection.get("subject_timer")
+      subject_time = file['startTimeNanos'].to_i / 1000000000 + 
+                     parms['followup_deadline_time'] -
+                     parms['followup_lead_time'] -
+                     Time.now.to_i
+      
+      RedisConnection.setex("subject_timer", subject_time, "")
+      
+      push('telescope', "time_to_followup", RedisConnection.ttl("subject_timer"))
+    end
+    
     tmp_key = uuid + "_" + tmp_key(
       observation_id, activity_id, pol, sub_channel, rendering )
     #log_entry( "Beam check:" )
@@ -473,13 +485,17 @@ post '/subjects' do
         is_empty = false
         tmp_data_key = uuid + "_" + tmp_data_key(observation_id, 
           activity_id, beam['polarization'], sub_channel, rendering, beam_no )
-        RedisConnection.setex tmp_data_key, min_subject_time, data.to_json
+        RedisConnection.setex tmp_data_key, 
+                    RedisConnection.ttl( 'subject_timer' ) + parms['data_key_buffer'], 
+                    data.to_json
       end
     end 
 
     unless is_empty
       empty_beams.each {|beam| file['beam'].delete(beam) }
-      RedisConnection.setex tmp_key, min_subject_time, file.to_json
+      RedisConnection.setex tmp_key,  
+                    RedisConnection.ttl( 'subject_timer' ) + parms['data_key_buffer'], 
+                    file.to_json
       ObservationUploader.new.perform(tmp_key)
     else
       RedisConnection.del tmp_key
