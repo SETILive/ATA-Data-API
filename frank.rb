@@ -8,7 +8,6 @@ require 'erb'
 require 'json'
 require 'pusher'
 require 'bson'
-require 'sidekiq'
 require 'aws-sdk'
 require 'uuid'
 # require 'debugger' ; debugger
@@ -31,28 +30,6 @@ redis_config = redis_config[mode_str].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 puts redis_config
 
 RedisConnection =Redis.new( redis_config  )
-if Sinatra::Base.development?
-  Sidekiq.configure_server do |config|
-    config.redis = { :url => "redis://#{redis_config[:host]}:#{redis_config[:port]}/", 
-      :namespace => 'setiliveworkers', :poll_interval => 5 }
-  end
-
-  Sidekiq.configure_client do |config|
-    config.redis = {  :url => "redis://#{redis_config[:host]}:#{redis_config[:port]}/", :namespace => 'setiliveworkers' , :size => 1 }
-  end
-
-else # Sinatra::Base.production?
-  
-  Sidekiq.configure_server do |config|
-    config.redis = { :url =>  "redis://#{redis_config['username']}:#{redis_config[:password]}@#{redis_config[:host]}:#{redis_config[:port]}/", 
-      :namespace => 'setiliveworkers', :poll_interval => 5 }
-  end
-
-  Sidekiq.configure_client do |config|
-    config.redis = {  :url =>  "redis://#{redis_config['username']}:#{redis_config[:password]}@#{redis_config[:host]}:#{redis_config[:port]}/", :namespace => 'setiliveworkers', :size => 1 }
-  end
-
-end
 
 require 'oily_png' #'chunky_png'
 
@@ -76,7 +53,6 @@ else
 end
 
 class PurgeTempFiles
-  #include Sidekiq::Worker
   
     def perform
       puts 'purge task'
@@ -99,21 +75,11 @@ class PurgeTempFiles
     end
 end
 
-class NextDataTime
-  include Sidekiq::Worker
-  
-  def perform
-    puts 'pushing time to next data ' + RedisConnection.ttl('time_to_new_data').to_s
-    push('telescope', 'time_to_new_data', RedisConnection.ttl('time_to_new_data'))
-  end
-end
-
 # Uploads a subject's data/images to S3 using temporary urls and puts the urls
 # into redis for Marv to retrieve and construct the Subject and Observation
 # object.
 # Replaces data in observation key with data and image urls in json format.
 class ObservationUploader
-  #include Sidekiq::Worker 
 
   @data = nil
   @subject = nil
@@ -241,7 +207,7 @@ post '/targets/:id' do |target_id|
   # RedisConnection.lpush 'log', {:type=>'targets_post', :date=>Time.now, :data=> params[:target]}.to_json
 
   RedisConnection.set target_key(target_id), target_info.to_json
-  return [201, "upadted target"]
+  return [201, "updated target"]
 end
 
 get '/targets' do  
@@ -457,12 +423,8 @@ post '/subjects' do
     min_subject_time = RedisConnection.get("min_subject_time").to_i
     unless RedisConnection.get("subject_timer")
       RedisConnection.setex("subject_timer", min_subject_time, "")
-      #RedisConnection.setex("time_to_new_data",min_newdata_time, "")
-      #log_entry( "PurgeTempFiles called" )
       PurgeTempFiles.new.perform()
-      #log_entry( "Messages, timers: ")
       push('telescope', "time_to_followup", RedisConnection.ttl("subject_timer"))
-      #NextDataTime.perform_in( RedisConnection.ttl("subject_timer").to_i )
     end
     
     # Temporary identifier for temporary redis keys and image/data filenames. 
@@ -477,10 +439,6 @@ post '/subjects' do
       file << blk
     end
     file = BSON.deserialize(file)
-
-    # RedisConnection.lpush 'log', {:type=>'subject_upload', :date=>Time.now, :data=> {:params => params, :file => file}}
-
-    #key      = subject_key(observation_id, activity_id, pol, sub_channel )
     tmp_key = uuid + "_" + tmp_key(
       observation_id, activity_id, pol, sub_channel, rendering )
     #log_entry( "Beam check:" )
