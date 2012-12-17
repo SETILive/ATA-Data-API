@@ -13,8 +13,9 @@ require 'uuid'
 # require 'debugger' ; debugger
 
 # Passwords for better-than-nothing security
-operator_passwd = "iuojwtmwmdct"
-renderer_passwd = "hjiqvhkzxrlc"
+operator_passwd = "***REMOVED***"
+renderer_passwd = "***REMOVED***"
+marv_passwd = "***REMOVED***"
 
 Pusher.app_id = '***REMOVED***'
 Pusher.key = '***REMOVED***'
@@ -30,6 +31,12 @@ redis_config = redis_config[mode_str].inject({}){|r,a| r[a[0].to_sym]=a[1]; r}
 puts redis_config
 
 RedisConnection =Redis.new( redis_config  )
+
+if Sinatra::Base.development?  
+  marv_url = 'http://localhost:3000'
+else # Sinatra::Base.production?  
+  marv_url = 'http://www.setilive.org'
+end
 
 require 'oily_png' #'chunky_png'
 
@@ -321,11 +328,23 @@ post '/telescope_schedule_info' do
       t_change = t_start      
     end
     delta = (RedisConnection.get("next_status_change").to_f - t_change).to_f.abs
-    
+    if RedisConnection.get("status_change_inactive")
+      if RedisConnection.get("current_status") == 'inactive'
+        RedisConnection.del("status_change_inactive")
+        temp = RedisConnection.get( "next_status_change" ).to_i / 1000
+        puts "trigger telescope email notification "
+        url = URI.parse( marv_url + '/telescope_notify_users')
+        args = {'passwd' => marv_passwd}
+        Net::HTTP.post_form( url, args )
+      end
+    end
     # Look for a change greater than 1 second and update
-    if delta > 60000.0
+    if ( delta > 60000.0 )
       push("telescope", "next_status_changed", t_change.to_s)
-      RedisConnection.set "next_status_change", t_change.to_s      
+      RedisConnection.set "next_status_change", t_change.to_s
+      if !is_current && t_change > 0 # No current schedule, but one is pending
+        RedisConnection.setex( "status_change_inactive", 10 * 60, "")
+      end
     end
   else
     return [406, "bad parameters"]
