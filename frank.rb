@@ -338,7 +338,10 @@ post '/telescope_schedule_info' do
         puts "trigger telescope email notification "
         url = URI.parse( marv_url + '/telescope_notify_users')
         args = {'passwd' => marv_passwd}
-        Net::HTTP.post_form( url, args )
+        req = Net::HTTP::Post.new url.path
+        req.basic_auth 'edwardothegreat', 'Tajik123stan'
+        req.form_data args
+        Net::HTTP.new(url,host, url.port).start {|http| http.request req }
       end
     end
     # Look for a change greater than 1 second and update
