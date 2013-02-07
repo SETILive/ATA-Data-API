@@ -16,6 +16,8 @@ require 'uuid'
 operator_passwd = "***REMOVED***"
 renderer_passwd = "***REMOVED***"
 marv_passwd = "***REMOVED***"
+zoo_username = "***REMOVED***"
+zoo_passwd = "***REMOVED***"
 
 Pusher.app_id = '***REMOVED***'
 Pusher.key = '***REMOVED***'
@@ -339,9 +341,9 @@ post '/telescope_schedule_info' do
         url = URI.parse( marv_url + '/telescope_notify_users')
         args = {'passwd' => marv_passwd}
         req = Net::HTTP::Post.new url.path
-        req.basic_auth 'edwardothegreat', 'Tajik123stan'
-        req.form_data args
-        Net::HTTP.new(url,host, url.port).start {|http| http.request req }
+        req.basic_auth zoo_username, zoo_passwd
+        req.set_form_data args
+        Net::HTTP.new(url.host, url.port).start {|http| http.request req }	
       end
     end
     # Look for a change greater than 1 second and update
