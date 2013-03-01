@@ -333,10 +333,13 @@ post '/telescope_schedule_info' do
       t_change = t_start      
     end
     delta = (RedisConnection.get("next_status_change").to_f - t_change).to_f.abs
+    
+    # Check if the apparent extended inactive period indicated by the schedule
+    # (which previously armed the status_change_inactive flag) has actually
+    # happened and send the email notification.
     if RedisConnection.get("status_change_inactive")
       if RedisConnection.get("current_status") == 'inactive'
         RedisConnection.del("status_change_inactive")
-        temp = RedisConnection.get( "next_status_change" ).to_i / 1000
         puts "trigger telescope email notification "
         url = URI.parse( marv_url + '/telescope_notify_users')
         args = {'passwd' => marv_passwd}
@@ -346,13 +349,17 @@ post '/telescope_schedule_info' do
         Net::HTTP.new(url.host, url.port).start {|http| http.request req }	
       end
     end
-    # Look for a change greater than 1 second and update
+    # Look for a change greater than 1 minute and update site status display
     if ( delta > 60000.0 )
       push("telescope", "next_status_changed", t_change.to_s)
       RedisConnection.set "next_status_change", t_change.to_s
-      if !is_current && t_change > 0 # No current schedule, but one is pending
+    end
+    
+    # Look for a change greater than 4 hours to a non-current schedule 
+    # and arm the email notification flag, indicating an apparent extended
+    # inactive period.
+    if (delta > 4 * 3600 * 1000 ) && !is_current && t_change > 0
         RedisConnection.setex( "status_change_inactive", 10 * 60, "")
-      end
     end
   else
     return [406, "bad parameters"]
@@ -511,7 +518,7 @@ post '/subjects' do
   rescue => ex
     puts ex.message
     f = File.open('exc_subjects.msg','a')
-    f.write("EXCEPTION: #{ex.class}: #{ex.message}\nBACKTRACE: #{ex.backtrace}\n\n")
+    f.write("EXCEPTION: #{Time.now.utc.to_s}: #{ex.class}: #{ex.message}\nBACKTRACE: #{ex.backtrace}\n\n")
     f.close
   end
 end
