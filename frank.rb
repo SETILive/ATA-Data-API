@@ -413,7 +413,9 @@ get '/subjects' do
 end
 
 get '/recents' do
-  RedisConnection.keys("*#{redis_recent_prefix}*").inject({}){|r,k| r[k]={:ttl=>RedisConnection.ttl(k)}; r }.to_json
+  RedisConnection.keys("*#{redis_recent_prefix}*").inject({}){|r,k| 
+    r[k]={:ttl=>RedisConnection.ttl(k), 
+          :priority=>RedisConnection.get(k)}; r }.to_json
 end
 
 get '/key/:key' do |key|

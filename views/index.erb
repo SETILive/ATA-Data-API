@@ -17,7 +17,7 @@
 					for (key in data){
 						count += 1;
 						var col = colors[Math.floor(data[key].ttl*3.0/90.0)] || "black";
-						$('#recent-keys').append($("<li> "+ key +" time left  "+data[key].ttl+" s </li>" ).css("color", col));
+						$('#recent-keys').append($("<li> "+ key + " priority:" + data[key].priority + " time left  "+data[key].ttl+" s </li>" ).css("color", col));
 					}
 				setTimeout(get_recent, 2500);
 				});
