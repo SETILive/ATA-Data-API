@@ -133,7 +133,7 @@ class ObservationUploader
       object_file = File.open( file_path, 'w' )
       object_file.write( data )
       object_file.close
-      'http://localhost:9914/' + bucket_name + "/" + name
+      "http://#{`hostname`.gsub("\n",'')}:9914/#{bucket_name}/#{name}"
     else
       s3 = AWS::S3.new
       bucket = s3.buckets['zooniverse-seti']
