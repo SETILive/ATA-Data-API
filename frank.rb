@@ -13,8 +13,7 @@ require 'uuid'
 # require 'debugger' ; debugger
 
 # Passwords for better-than-nothing security
-operator_passwd = "***REMOVED***"
-renderer_passwd = "***REMOVED***"
+seti_passwd = "***REMOVED***"
 marv_passwd = "***REMOVED***"
 zoo_username = "***REMOVED***"
 zoo_passwd = "***REMOVED***"
@@ -318,7 +317,7 @@ end
 # Next or current schedule start, end times
 
 post '/telescope_schedule_info' do
-  return [ 406, "bad parameters" ] unless params[:password] == renderer_passwd
+  return [ 406, "bad parameters" ] unless params[:password] == seti_passwd
   is_current_str = params[:current]
   start_str = params[:starttime]
   end_str = params[:endtime]
@@ -373,7 +372,7 @@ post '/operator_message' do
   # Time.at(time_string_in_seconds.to_i).ctime
   # Message will be truncated to 51 characters.
   
-  return [ 406, "bad parameters" ] unless params[:password] == operator_passwd
+  return [ 406, "bad parameters" ] unless params[:password] == seti_passwd
 
   message = params[:message] == "" ? 
     "The telescope is operating normally." :
