@@ -168,7 +168,8 @@ class ObservationUploader
     height = @subject['height']
     png = ChunkyPNG::Image.new(width, height, ChunkyPNG::Color.grayscale(255))
     beam = data
-    (0..(height-1)).each do |ypos|
+    # SonATA delivers last row blank. Fill by repeating previous row
+    (0..(height-2)).each do |ypos|
       row = beam[(ypos*width) .. ((ypos+1)*width-1)]
       row.each_with_index do |val, idx|
         val = 255 if val > 255
@@ -177,6 +178,7 @@ class ObservationUploader
       end
       png.replace_row!(height - 1 - ypos, row)
     end
+    png.replace_row!(0, png.row(1)) # Last row fill
     png.resample_nearest_neighbor!(img_width,img_height)
   end
 
