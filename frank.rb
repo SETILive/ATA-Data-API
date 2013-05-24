@@ -385,6 +385,24 @@ post '/operator_message' do
   return 201
 end
 
+post '/numbeams' do
+  return [ 406, "bad parameters" ] unless params[:info][:password] == seti_passwd
+  beams = params[:info][:beams].to_i
+  allowed_values = [1, 2, 3]
+  if allowed_values.include?( beams )
+    if ( temp = RedisConnection.get('live_classification_parms') )
+      temp = JSON.parse( temp )
+      temp['number_of_beams'] = beams
+      RedisConnection.set( 'live_classification_parms', temp.to_json )
+      return 201
+    else
+      return [202, 'server not yet configured to use this data']
+    end
+  else
+    return [406, 'invalid beam count']
+  end
+end
+
 post '/status/:status_update' do |status|
   allowed_states = ["active", "inactive", "replay"]
 
