@@ -13,10 +13,10 @@ require 'uuid'
 # require 'debugger' ; debugger
 
 # Passwords for better-than-nothing security
-seti_passwd = "***REMOVED***"
-marv_passwd = "***REMOVED***"
-zoo_username = "***REMOVED***"
-zoo_passwd = "***REMOVED***"
+seti_passwd = "SETI_PASSWORD"
+marv_passwd = "MARV_PASSWORD"
+zoo_username = "ZOONIVERSE_USERNAME"
+zoo_passwd = "ZOONIVERSE_PASSWORD"
 
 Pusher.app_id = '***REMOVED***'
 Pusher.key = '***REMOVED***'
